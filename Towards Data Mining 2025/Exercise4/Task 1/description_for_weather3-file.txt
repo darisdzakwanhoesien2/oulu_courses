@@ -1,0 +1,1 @@
+Contains data from weather station 3 at location x. Data file has two columns: 1. timestamp, units are seconds. 6 measurements per minute. 2. Information about cloudiness, this variable has three possibly values [cloudy, partly_cloudy, sunny]

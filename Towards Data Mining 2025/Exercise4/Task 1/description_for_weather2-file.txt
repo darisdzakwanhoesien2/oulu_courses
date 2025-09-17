@@ -1,0 +1,1 @@
+Contains data from weather station 2 at location x. Data file has two columns: 1. timestamp, units are seconds. 12 measurements per minute. 2. degrees, unit is Fahrenheit
