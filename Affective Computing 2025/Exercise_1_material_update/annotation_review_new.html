@@ -1,0 +1,865 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Research – Local MP4 Browser + Annotation Tool</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{background:#FAFAFA;color:#000;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    /* Top three-column layout */
+    #pageContainer{width:1500px;max-width:96vw;margin:10px auto;display:grid;grid-template-columns:640px 1fr 420px;grid-gap:12px;align-items:start}
+
+    #movieArea{width:640px;height:450px;padding:5px;background:#000}
+    #annotationListOuterArea{width:100%;height:450px;padding:5px;overflow:auto;border:1px solid #999;background:#fff}
+    #fileBrowserArea{width:100%;height:450px;padding:10px;overflow:auto;border:1px solid #999;background:#fff;border-radius:6px}
+    #fileBrowserArea.dragover{outline:2px dashed #4a90e2; outline-offset:4px; background:#f5fbff}
+
+    /* Controls under the video */
+    #controlsRow{grid-column:1 / span 2;display:flex;align-items:center;gap:16px;margin-top:10px}
+    .playOrPauseButton{width:90px;height:40px;font-weight:700}
+    .sliderBar{width:250px}
+    .movieControls{height:28px}
+
+    #timeRow{grid-column:1 / span 3;display:flex;align-items:center;gap:12px;margin:6px 0}
+    #timeDisplayArea input{width:120px}
+    #saveBtn{margin-left:auto}
+
+    /* Annotation controls */
+    #mainAnnotControlArea{grid-column:1 / span 3;width:100%;margin-top:8px;border:1px solid #999;background:#fff}
+    #setTimeArea{border:3px double #999;padding:10px}
+    #labelArea{padding:10px;border-top:1px solid #e5e5e5}
+    .annotationTimeList{width:65px;margin-right:2px}
+    .annotationOpinionList{width:95px;margin-right:2px}
+    .selectedTimeTextArea{width:90px}
+
+    /* File table */
+    #fileTable{width:100%;border-collapse:collapse;margin-top:10px}
+    #fileTable th,#fileTable td{border-bottom:1px solid #eee;padding:8px 6px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #fileTable th{background:#fafafa;text-align:left}
+    #pagination{display:flex;align-items:center;gap:8px;margin-top:10px}
+    #pageInfo{min-width:110px;text-align:center}
+
+    .muted{color:#666}
+      .row-selected{background:#E6F3FF !important;}
+    #saveBtn{padding:10px 18px;font-size:16px;font-weight:700;border-radius:8px}
+  </style>
+</head>
+<body>
+  <h1 style="margin-left: calc(2vw);">Research</h1>
+
+  <!-- Top nav (restored) -->
+  <div style="margin:0 calc(2vw); padding:6px 0; border-top:1px solid #ccc; border-bottom:1px solid #ccc;">
+    <b><a href="https://mikecheninoulu.github.io/">Home</a></b>
+    &nbsp;&nbsp;
+    <b><a href="https://mikecheninoulu.github.io/">Biography</a></b>
+    &nbsp;&nbsp;
+    <b><a href="https://mikecheninoulu.github.io/">Publications</a></b>
+    &nbsp;&nbsp;
+    <b><a href="https://mikecheninoulu.github.io/">Research</a></b>
+    &nbsp;&nbsp;
+    <b><a href="https://scholar.google.com/citations?user=QgbraMIAAAAJ&hl=en">Google Citations</a></b>
+  </div>
+
+  <div id="pageContainer">
+    <!-- Left: Video player -->
+    <div id="movieArea">
+      <video tabindex="0" id="video" controls onmouseup="movieControlSeeked()" onplay="movieControlPlay()" onpause="movieControlPause()" width="640" height="450">
+        <source id="mp4_src" src="" type="video/mp4" />
+      </video>
+    </div>
+
+    <!-- Middle: Annotation list (kept from original) -->
+    <div id="annotationListOuterArea">
+      <div>
+        <input type="file" id="files" style="display: none;" />
+        <input value="Load Anno" onclick="importAnno()" type="button" />
+        <span id="selectedAnnoFile" style="margin-left: 10px;">No files selected</span>
+
+        
+      </div>
+      <div id="annotationListInnerArea">
+        <input class="annotationTimeList" type="text" name="startTimeList" readonly value="Start Time" />
+        <input class="annotationTimeList" type="text" name="endTimeList" readonly value="End Time" />
+        <input class="annotationOpinionList" type="text" name="opinionList" readonly value="Opinion" />
+      </div>
+    </div>
+
+    <!-- Right: Local folder/file browser -->
+    <div id="fileBrowserArea">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <b>Select folder with MP4 files:</b>
+        <input id="mp4Folder" type="file" webkitdirectory directory multiple />
+        <span class="muted">(Local only, no upload)</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+        <span class="muted">or select files directly:</span>
+        <input id="mp4Files" type="file" multiple accept="video/*,.mp4,.m4v,.mov,.webm,.mkv" />
+        <button id="clearFileList" type="button">Clear</button>
+        <span id="scanStatus" class="muted"></span>
+        <span id="currentVideo" class="muted" style="margin-left:auto"></span>
+      </div>
+
+      <table id="fileTable">
+        <thead>
+          <tr>
+            <th style="width:50px">#</th>
+            <th>Filename</th>
+            <th style="width:180px">Action</th>
+          </tr>
+        </thead>
+        <tbody id="fileTableBody">
+          <tr><td colspan="3" class="muted">No folder selected</td></tr>
+        </tbody>
+      </table>
+
+      <div id="pagination">
+        <button id="prevPage" disabled>Prev</button>
+        <span id="pageInfo">Page 0/0</span>
+        <button id="nextPage" disabled>Next</button>
+        <span style="margin-left:auto">Rows per page
+          <select id="pageSize">
+            <option value="10" selected>10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+            <option value="30">30</option>
+          </select>
+        </span>
+      </div>
+    </div>
+
+    <!-- Controls row under the player -->
+    <div id="controlsRow">
+      <input id="b_playOrPause" class="playOrPauseButton" value="Play/Pause" onclick="playOrPause()" type="button" />
+      <div>
+        <label class="sliderLabels">-3 secs</label>
+        <input id="sliderBar" class="sliderBar" type="range" min="-3.0" max="3.0" value="0" step=".04" onchange="adjustVideoWithSlider()" />
+        <label class="sliderLabels">+3 secs</label>
+      </div>
+      <div style="display:flex;gap:6px">
+        <input class="movieControls" value="<< 1 sec" onclick="moveCurrentTime('backward','second',1,false)" type="button" />
+        <input class="movieControls" value="<< 1 frame" onclick="moveCurrentTime('backward','frame',1,false)" type="button" />
+        <input class="movieControls" value=">> 1 frame" onclick="moveCurrentTime('forward','frame',1,false)" type="button" />
+        <input class="movieControls" value=">> 1 sec" onclick="moveCurrentTime('foreward','second',1,false)" type="button" />
+      </div>
+    </div>
+
+    <div id="timeRow">
+      <div id="timeDisplayArea">
+        <label>Current Time: </label>
+        <input id="t_currentTimeText" class="timeDisplayText" value="" disabled type="text" />
+      </div>
+      <button id="saveBtn" onclick="downloadFile()">Save</button>
+    </div>
+
+    <!-- Annotation controls (kept from original, English labels) -->
+    <div id="mainAnnotControlArea">
+      <div id="setTimeArea">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <div>
+            <input id="b_setStartTime" class="annotControlButtons" value="Set Start Time" onclick="setStartTimeText()" type="button" />
+            <input id="t_startTimeText" class="selectedTimeTextArea" value="" disabled type="text" />
+            <input id="b_clearStartTimeText" class="selectedTimeClearButtons" value="X" onclick="clearSetStartTimeText()" type="button" />
+          </div>
+          <div>
+            <input id="b_setEndTime" class="annotControlButtons" value="Set End Time" onclick="setEndTimeText()" type="button" />
+            <input id="t_endTimeText" class="selectedTimeTextArea" value="" disabled type="text" />
+            <input id="b_clearSetEndTimeText" class="selectedTimeClearButtons" value="X" onclick="clearSetEndTimeText()" type="button" />
+          </div>
+          <input id="b_playSelection" class="annotControlButtons" value="Play Selection" onclick="playSelection('current')" type="button" />
+        </div>
+      </div>
+
+      <div id="labelArea">
+        <b>This opinion is...</b>
+        <table>
+          <tbody>
+            <td><label><input class="labelTexts" value="1"  type="radio" name="labelGroup"><small>1. Turtle neck</small></label></td>
+            <td><label><input class="labelTexts" value="2"  type="radio" name="labelGroup"><small>2. Bulging face, deep breath</small></label></td>
+            <td><label><input class="labelTexts" value="3"  type="radio" name="labelGroup"><small>3. Touch hat</small></label></td>
+            <td><label><input class="labelTexts" value="4"  type="radio" name="labelGroup"><small>4. Touching or scratching head</small></label></td>
+            <td><label><input class="labelTexts" value="5"  type="radio" name="labelGroup"><small>5. Touching or scratching forehead</small></label></td>
+            <td><label><input class="labelTexts" value="6"  type="radio" name="labelGroup"><small>6. Cover face</small></label></td>
+            <td><label><input class="labelTexts" value="7"  type="radio" name="labelGroup"><small>7. Rubbing eyes</small></label></td>
+            <td><label><input class="labelTexts" value="8"  type="radio" name="labelGroup"><small>8. Scratching or touching facial parts</small></label></td>
+            <td><label><input class="labelTexts" value="9"  type="radio" name="labelGroup"><small>9. Touching ears</small></label></td>
+          </tbody>
+          <tbody>
+            <td><label><input class="labelTexts" value="10" type="radio" name="labelGroup"><small>10. Biting nails</small></label></td>
+            <td><label><input class="labelTexts" value="11" type="radio" name="labelGroup"><small>11. Touching jaw</small></label></td>
+            <td><label><input class="labelTexts" value="12" type="radio" name="labelGroup"><small>12. Touching or scratching neck</small></label></td>
+            <td><label><input class="labelTexts" value="13" type="radio" name="labelGroup"><small>13. Playing or adjusting hair</small></label></td>
+            <td><label><input class="labelTexts" value="14" type="radio" name="labelGroup"><small>14. Buckle button / pull shirt collar / adjust tie</small></label></td>
+            <td><label><input class="labelTexts" value="15" type="radio" name="labelGroup"><small>15. Touching or covering suprasternal notch</small></label></td>
+            <td><label><input class="labelTexts" value="16" type="radio" name="labelGroup"><small>16. Scratching back</small></label></td>
+            <td><label><input class="labelTexts" value="17" type="radio" name="labelGroup"><small>17. Folding arms</small></label></td>
+            <td><label><input class="labelTexts" value="18" type="radio" name="labelGroup"><small>18. Dust off clothes</small></label></td>
+          </tbody>
+          <tbody>
+            <td><label><input class="labelTexts" value="19" type="radio" name="labelGroup"><small>19. Put arms behind body</small></label></td>
+            <td><label><input class="labelTexts" value="20" type="radio" name="labelGroup"><small>20. Moving torso</small></label></td>
+            <td><label><input class="labelTexts" value="21" type="radio" name="labelGroup"><small>21. Sit straight</small></label></td>
+            <td><label><input class="labelTexts" value="22" type="radio" name="labelGroup"><small>22. Scratching or touching arms</small></label></td>
+            <td><label><input class="labelTexts" value="23" type="radio" name="labelGroup"><small>23. Rubbing or holding hands</small></label></td>
+            <td><label><input class="labelTexts" value="24" type="radio" name="labelGroup"><small>24. Crossing fingers</small></label></td>
+            <td><label><input class="labelTexts" value="25" type="radio" name="labelGroup"><small>25. Minaret gesture</small></label></td>
+            <td><label><input class="labelTexts" value="26" type="radio" name="labelGroup"><small>26. Playing with other objects</small></label></td>
+            <td><label><input class="labelTexts" value="27" type="radio" name="labelGroup"><small>27. Hold back arms</small></label></td>
+          </tbody>
+          <tbody>
+            <td><label><input class="labelTexts" value="28" type="radio" name="labelGroup"><small>28. Head up</small></label></td>
+            <td><label><input class="labelTexts" value="29" type="radio" name="labelGroup"><small>29. Pressing lips</small></label></td>
+            <td><label><input class="labelTexts" value="30" type="radio" name="labelGroup"><small>30. Arms akimbo</small></label></td>
+            <td><label><input class="labelTexts" value="31" type="radio" name="labelGroup"><small>31. Shake shoulders</small></label></td>
+            <td><label><input class="labelTexts" value="99" type="radio" name="labelGroup"><small>99. Non‑micro gestures</small></label></td>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="padding:8px">
+        <input id="b_annotate" class="annotateButton" value="Annotate" onclick="annotateOrUpdate('annotationListInnerArea')" type="button" />
+        <input id="b_cancel" style="visibility:hidden" class="cancelButton" value="Cancel" onclick="exitUpdateMode()" type="button" />
+      </div>
+    </div>
+  </div>
+
+  <div style="margin:14px calc(2vw);">
+    <b>Keyboard Hotkeys</b>
+    <div>Play/Pause =&gt; f &nbsp;&nbsp; Set Start Time =&gt; s</div>
+    <div>&gt;&gt; 1 frame =&gt; → &nbsp;&nbsp; Set End Time =&gt; e</div>
+    <div>&lt;&lt; 1 frame =&gt; ← &nbsp;&nbsp; Annotate =&gt; a</div>
+  </div>
+
+<script>
+    // ================== Original functionality (preserved) ==================
+    var video, startTimeText, endTimeText, currentTimeText, playingAndSetEndTime;
+    var toggleIsPlay = false, FPS = 25, EPSILON = 1e-6, toggleIsPlayingSelection = false;
+    var annotCnt = 0, mySliderBar, pausedTime = 0, annotEditMode = false, editAnnotID = null;
+
+    function resetAll() {
+        pausedTime = 0;
+        clearLabeledLabels();
+        // New: Also clear the displayed annotation file name
+        const fileNameSpan = document.getElementById('selectedAnnoFile');
+        if (fileNameSpan) {
+            fileNameSpan.textContent = 'No files selected'; // Reset to initial state
+        }
+    }
+
+    function clearLabeledLabels() {
+        for (var i = 1; i <= annotCnt; i++) {
+            var id = 'annot' + i;
+            var el = document.getElementById(id);
+            if (el) {
+                document.getElementById('annotationListInnerArea').removeChild(el);
+            }
+        }
+        annotCnt = 0;
+    }
+
+    function downloadFile(filename) {
+        var final = "";
+        for (var i = 1; i <= annotCnt; i++) {
+            var id = 'annot' + i;
+            var el = document.getElementById(id);
+            if (!el) continue;
+            final += el.childNodes[0].value + '\t' + el.childNodes[1].value + '\t' + el.childNodes[2].value + '\n';
+        }
+        var fname = filename;
+        if (!fname) {
+            if (window.currentVideoBaseName) {
+                fname = window.currentVideoBaseName + '.txt';
+            } else {
+                fname = 'annotations.txt';
+            }
+        }
+        var blob = new Blob([final], { type: 'text/plain' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.style = 'display:none';
+        a.href = url;
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 5);
+    }
+
+    function KeyInputCheck() {
+        var e = event || window.event;
+        var keyCode = e.keyCode;
+        switch (keyCode) {
+            case 37:
+                moveCurrentTime('backward', 'frame', 1, false);
+                break;
+            case 39:
+                moveCurrentTime('forward', 'frame', 1, false);
+                break;
+            case 65:
+                annotateOrUpdate('annotationListInnerArea');
+                break;
+            case 69:
+                setEndTimeText();
+                break;
+            case 70:
+                playOrPause();
+                break;
+            case 83:
+                setStartTimeText();
+                break;
+        }
+    }
+
+    function playOrPause() {
+        if (!toggleIsPlay) {
+            play();
+        } else {
+            pause();
+        }
+    }
+
+    function play() {
+        if (!toggleIsPlay) {
+            video.currentTime = Math.max(0, video.currentTime - EPSILON);
+            video.play();
+            resetSliderPosition();
+            toggleIsPlay = true;
+        }
+    }
+
+    function pause() {
+        if (toggleIsPlay) {
+            video.pause();
+            pausedTime = video.currentTime;
+            toggleIsPlay = false;
+        }
+    }
+
+    function movieControlPlay() {
+        video.currentTime = Math.max(0, video.currentTime - EPSILON);
+        resetSliderPosition();
+        toggleIsPlay = true;
+    }
+
+    function movieControlPause() {
+        video.currentTime = Math.max(0, video.currentTime - EPSILON);
+        video.pause();
+        pausedTime = video.currentTime;
+        toggleIsPlay = false;
+    }
+
+    function movieControlSeeked() {
+        video.currentTime = Math.max(0, video.currentTime - EPSILON);
+        if (toggleIsPlay) {
+            video.pause();
+            toggleIsPlay = false;
+        }
+        pausedTime = video.currentTime;
+        resetSliderPosition();
+    }
+
+    function moveCurrentTime(direction, frameOrSec, stepSize, fixedRange) {
+        var step = frameOrSec === 'second' ? stepSize : stepSize * (1 / FPS);
+        if (direction === 'backward') step = -step;
+        pause();
+        var target = fixedRange ? pausedTime + step : video.currentTime + step;
+        if (!fixedRange) {
+            resetSliderPosition();
+            pausedTime = video.currentTime;
+        }
+        video.currentTime = Math.max(0, parseFloat(String(target)));
+    }
+
+    function setStartTimeText() {
+        pause();
+        startTimeText.value = currentTimeText.value;
+    }
+
+    function setEndTimeText() {
+        pause();
+        endTimeText.value = currentTimeText.value;
+    }
+
+    function clearSetStartTimeText() {
+        startTimeText.value = '';
+    }
+
+    function clearSetEndTimeText() {
+        endTimeText.value = '';
+    }
+
+    function isValidTimeSelection() {
+        var s = -1,
+            e = -1;
+        if (startTimeText.value !== '') {
+            s = parseFloat(startTimeText.value);
+        } else {
+            alert('Please specify the start time.');
+            return false;
+        }
+        if (endTimeText.value !== '') {
+            e = parseFloat(endTimeText.value);
+        } else {
+            alert('Please specify the end time.');
+            return false;
+        }
+        if (s <= e) {
+            return true;
+        }
+        alert('The start time should come before the end time.');
+        return false;
+    }
+
+    function getCheckedLabelValue() {
+        var ret = null;
+        var g = document.getElementsByName('labelGroup');
+        for (var i = 0; i < g.length; i++) {
+            if (g[i].checked) {
+                ret = g[i].value;
+                break;
+            }
+        }
+        return ret;
+    }
+
+    function isValidSelection() {
+        if (isValidTimeSelection()) {
+            if (getCheckedLabelValue() != null) {
+                return true;
+            }
+            alert('Please select the opinion.');
+            return false;
+        }
+        return false;
+    }
+
+    function playSelection(annotID) {
+        if (annotID === 'current') {
+            if (isValidTimeSelection()) {
+                var s = parseFloat(startTimeText.value),
+                    e = parseFloat(endTimeText.value);
+                video.currentTime = s;
+                toggleIsPlayingSelection = true;
+                playingAndSetEndTime = e;
+                play();
+            }
+        } else {
+            var elem = document.getElementById(annotID);
+            var s = parseFloat(elem.childNodes.item(0).value),
+                e = parseFloat(elem.childNodes.item(1).value);
+            video.currentTime = s;
+            toggleIsPlayingSelection = true;
+            playingAndSetEndTime = e;
+            play();
+        }
+    }
+
+    function editAnnotation(divName, annotID) {
+        annotEditMode = true;
+        editAnnotID = annotID;
+        var annotEle = document.getElementById(annotID);
+        startTimeText.value = annotEle.childNodes[0].value;
+        endTimeText.value = annotEle.childNodes[1].value;
+        var labelGroupEle = document.getElementsByName('labelGroup');
+        for (var i = 0; i < labelGroupEle.length; i++) {
+            if (labelGroupEle[i].value == annotEle.childNodes[2].value) {
+                labelGroupEle[i].checked = true;
+                break;
+            }
+        }
+        document.getElementById('b_annotate').value = 'Update';
+        document.getElementById('b_cancel').style.visibility = 'visible';
+    }
+
+    function annotateOrUpdate(divName) {
+        if (annotEditMode) {
+            if (isValidSelection()) {
+                var el = document.getElementById(editAnnotID);
+                el.childNodes[0].value = startTimeText.value;
+                el.childNodes[1].value = endTimeText.value;
+                el.childNodes[2].value = getCheckedLabelValue();
+                exitUpdateMode();
+            }
+        } else {
+            if (isValidSelection()) {
+                annotCnt++;
+                var id = 'annot' + annotCnt;
+                var d = document.createElement('div');
+                d.setAttribute('id', id);
+                d.innerHTML = '<input class="annotationTimeList" type="text" name="startTimeList" readonly value="' + startTimeText.value + '">';
+                d.innerHTML += '<input class="annotationTimeList" type="text" name="endTimeList" readonly value="' + endTimeText.value + '">';
+                d.innerHTML += '<input class="annotationOpinionList" type="text" name="opinionList" readonly value="' + getCheckedLabelValue() + '">';
+                d.innerHTML += '<input value="Play" onclick="playSelection(\'' + id + '\')" type="button">';
+                d.innerHTML += '<input value="Edit" onclick="editAnnotation(\'' + divName + '\',\'' + id + '\')" type="button">';
+                d.innerHTML += '<input value="X" onclick="removeAnnotate(\'' + divName + '\',\'' + id + '\')" type="button">';
+                document.getElementById(divName).appendChild(d);
+                clearSetStartTimeText();
+                clearSetEndTimeText();
+                document.getElementById('annotationListOuterArea').scrollTop = document.getElementById('annotationListOuterArea').scrollHeight + 100;
+            }
+        }
+    }
+
+    function exitUpdateMode() {
+        annotEditMode = false;
+        editAnnotID = null;
+        clearSetStartTimeText();
+        clearSetEndTimeText();
+        document.getElementById('b_annotate').value = 'Annotate';
+        document.getElementById('b_cancel').style.visibility = 'hidden';
+    }
+
+    function removeAnnotate(divName, annotID) {
+        if (annotEditMode) {
+            exitUpdateMode();
+        }
+        if (annotCnt > 0) {
+            if (annotID === 'last') {
+                document.getElementById(divName).removeChild(document.getElementById(divName).lastChild);
+            } else {
+                var el = document.getElementById(annotID);
+                if (el) {
+                    document.getElementById(divName).removeChild(el);
+                }
+            }
+            annotCnt--;
+        }
+    }
+
+    function displayVideoCurrentTime() {
+        var s = String(video.currentTime);
+        s = s.substring(0, s.indexOf('.') + 5);
+        currentTimeText.value = s;
+    }
+
+    function checkAndPauseSelectionPlay() {
+        if (toggleIsPlayingSelection) {
+            if (video.currentTime >= playingAndSetEndTime) {
+                pause();
+                toggleIsPlayingSelection = false;
+            }
+        }
+    }
+
+    function adjustVideoWithSlider() {
+        if (toggleIsPlay) {
+            pause();
+        }
+        var direction = 'forward';
+        var v = mySliderBar.value;
+        if (v < 0) {
+            direction = 'backward';
+        }
+        moveCurrentTime(direction, 'second', Math.abs(v), true);
+    }
+
+    function resetSliderPosition() {
+        mySliderBar.value = 0;
+    }
+
+    // ================== Local folder/file browser (stable v2) ==================
+    let fileEntries = [];
+    let currentPage = 1;
+    let pageSize = 10;
+    let currentVideoIndex = -1;
+    window.currentVideoBaseName = null;
+
+    const VIDEO_EXTS = ['mp4', 'm4v', 'mov', 'webm', 'mkv'];
+
+    function fbSetStatus(msg) {
+        const el = document.getElementById('scanStatus');
+        if (el) el.textContent = msg || '';
+    }
+
+    function fbCleanup() {
+        try {
+            fileEntries.forEach(f => {
+                if (f.url) URL.revokeObjectURL(f.url);
+            });
+        } catch (_) {}
+    }
+
+    function fbExtFromPath(p) {
+        const i = p.lastIndexOf('.');
+        return i >= 0 ? p.slice(i + 1).toLowerCase() : '';
+    }
+
+    function fbBuildEntries(fileList) {
+        const arr = Array.from(fileList || []);
+        console.log('[fb] raw files:', arr.map(f => f.webkitRelativePath || f.name));
+        const out = [];
+        for (const f of arr) {
+            const path = f.webkitRelativePath || f.name || '';
+            const ext = fbExtFromPath(path);
+            const isVideo = (f.type && f.type.indexOf('video/') === 0) || VIDEO_EXTS.indexOf(ext) >= 0;
+            if (!isVideo) continue;
+            out.push({
+                name: path,
+                shortName: f.name,
+                file: f,
+                url: URL.createObjectURL(f)
+            });
+        }
+        out.sort((a, b) => a.name.localeCompare(b.name, 'en'));
+        return out;
+    }
+
+    function fbRender() {
+        const tbody = document.getElementById('fileTableBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        const total = fileEntries.length;
+        if (!total) {
+            tbody.innerHTML = '<tr><td colspan="3" class="muted">No MP4 found</td></tr>';
+        } else {
+            const start = (currentPage - 1) * pageSize;
+            const rows = fileEntries.slice(start, start + pageSize);
+            rows.forEach((item, i) => {
+                const idx = start + i;
+                const tr = document.createElement('tr');
+                tr.id = 'file-row-' + idx;
+                if (idx === currentVideoIndex) tr.classList.add('row-selected');
+                tr.innerHTML = `<td>${idx+1}</td><td title="${item.name}">${item.name}</td><td><button class="playBtn" data-index="${idx}">Play</button> <button class="openFileBtn" data-index="${idx}">Load in player</button></td>`;
+                tbody.appendChild(tr);
+            });
+        }
+        const pages = Math.max(1, Math.ceil((fileEntries.length || 0) / pageSize));
+        const info = document.getElementById('pageInfo');
+        if (info) {
+            info.textContent = `Page ${fileEntries.length?currentPage:0}/${pages}`;
+        }
+        const prev = document.getElementById('prevPage');
+        const next = document.getElementById('nextPage');
+        if (prev) prev.disabled = (currentPage <= 1 || !fileEntries.length);
+        if (next) next.disabled = (currentPage >= Math.ceil((fileEntries.length || 0) / pageSize) || !fileEntries.length);
+        const cv = document.getElementById('currentVideo');
+        if (cv) {
+            cv.textContent = (currentVideoIndex >= 0 && fileEntries[currentVideoIndex]) ? `Current: ${fileEntries[currentVideoIndex].name}` : '';
+        }
+    }
+
+    function fbUpdateFromFileList(list) {
+        fbSetStatus(`Scanning... (${list?list.length:0} selected)`);
+        fbCleanup();
+        fileEntries = fbBuildEntries(list);
+        currentVideoIndex = -1;
+        window.currentVideoBaseName = null;
+        currentPage = 1;
+        fbRender();
+        console.log('[fb] filtered entries:', fileEntries.map(f => f.name));
+        fbSetStatus(fileEntries.length ? `Loaded ${fileEntries.length} video(s).` : 'No video files found.');
+    }
+
+    function fbOnFolderChange(e) {
+        try {
+            fbUpdateFromFileList(e.target.files);
+        } catch (err) {
+            console.error('[fb] folder change error', err);
+            fbSetStatus('Error reading folder (see console).');
+        }
+    }
+
+    function fbOnFilesChange(e) {
+        try {
+            fbUpdateFromFileList(e.target.files);
+        } catch (err) {
+            console.error('[fb] files change error', err);
+            fbSetStatus('Error reading files (see console).');
+        }
+    }
+
+    function fbOnTableClick(e) {
+        const t = e.target;
+        if (!(t instanceof HTMLElement)) return;
+        const idx = parseInt(t.getAttribute('data-index'), 10);
+        if (Number.isNaN(idx)) return;
+        const item = fileEntries[idx];
+        if (!item) return;
+        currentVideoIndex = idx;
+        window.currentVideoBaseName = (item.shortName || '').replace(/\.[^.]+$/, '');
+        fbRender();
+        if (t.classList.contains('playBtn')) loadVideoAndPlay(item);
+        if (t.classList.contains('openFileBtn')) loadVideoAndPause(item);
+    }
+
+    function loadVideo(item, clearAnnotations = true) {
+        if (!item || !item.url) {
+            console.error('No video item or URL provided.');
+            return;
+        }
+        const sourceElement = document.getElementById('mp4_src');
+        if (sourceElement) {
+            sourceElement.src = item.url;
+            video.load();
+            video.currentTime = 0;
+            if (clearAnnotations) {
+                resetAll();
+            }
+        }
+        const currentVideoDisplay = document.getElementById('currentVideo');
+        if (currentVideoDisplay) {
+            currentVideoDisplay.textContent = `Current: ${item.name}`;
+        }
+    }
+
+    function loadVideoAndPlay(item) {
+        loadVideo(item, false); // Don't clear annotations
+        video.play();
+    }
+
+    function loadVideoAndPause(item) {
+        loadVideo(item, true); // Clear annotations
+        video.pause();
+    }
+
+    function importAnno() {
+        // This function simply triggers the file selection. The actual processing
+        // will be done in handleFileSelection.
+        document.getElementById("files").click();
+    }
+
+    function handleFileSelection() {
+        var selectedFile = document.getElementById("files").files[0];
+        const fileInput = document.getElementById('files');
+
+        if (!selectedFile) {
+            updateAnnoFileName(null);
+            // Ensure the input is cleared even if no file is selected.
+            if (fileInput) {
+                fileInput.value = "";
+            }
+            return;
+        }
+
+        // Process the file
+        resetAll();
+        updateAnnoFileName({ target: fileInput });
+
+        var name = selectedFile.name;
+        var size = selectedFile.size;
+        console.log("Filename:" + name + "Size:" + size);
+
+        var reader = new FileReader();
+        reader.readAsText(selectedFile);
+
+        reader.onload = function() {
+            var result = this.result.split(/\r?\n/);
+            var parDivName = 'annotationListInnerArea';
+
+            var validAnnotations = result.filter(line => line.trim() !== "");
+
+            for (var importIte = 0; importIte < validAnnotations.length; importIte++) {
+                var currentAnnotation = validAnnotations[importIte].split('\t');
+                
+                if (currentAnnotation.length < 3) continue;
+
+                annotCnt = annotCnt + 1;
+                var annotID = "annot" + annotCnt;
+
+                var newdiv = document.createElement("div");
+                newdiv.setAttribute("id", annotID);
+                newdiv.innerHTML = '<input class="annotationTimeList" type="text" name="startTimeList" readonly="readonly" value="' + currentAnnotation[0].trim() + '">';
+                newdiv.innerHTML += '<input class="annotationTimeList" type="text" name="endTimeList" readonly="readonly" value="' + currentAnnotation[1].trim() + '">';
+                newdiv.innerHTML += '<input class="annotationOpinionList" type="text" name="opinionList" readonly="readonly" value="' + currentAnnotation[2].trim() + '">';
+                newdiv.innerHTML += '<input value="Play" onclick="playSelection(\'' + annotID + '\')" type="button">';
+                newdiv.innerHTML += '<input value="Edit" onclick="editAnnotation(\'' + parDivName + '\', \'' + annotID + '\')" type="button">';
+                newdiv.innerHTML += '<input value="X" onclick="removeAnnotate(\'' + parDivName + '\', \'' + annotID + '\')" type="button">';
+                document.getElementById(parDivName).appendChild(newdiv);
+            }
+
+            document.getElementById("annotationListOuterArea").scrollTop = document.getElementById("annotationListOuterArea").scrollHeight + 100;
+            
+            // New: Reset the file input value to ensure the 'change' event fires on consecutive selections of the same file.
+            if (fileInput) {
+                fileInput.value = "";
+            }
+        };
+    }
+
+    function updateAnnoFileName(event) {
+        const fileInput = document.getElementById('files');
+        const fileNameSpan = document.getElementById('selectedAnnoFile');
+        if (!fileNameSpan) return;
+
+        if (fileInput.files && fileInput.files.length > 0) {
+            fileNameSpan.textContent = fileInput.files[0].name;
+        } else {
+            fileNameSpan.textContent = 'No files selected';
+        }
+    }
+
+    // ================== Boot ==================
+    function init() {
+        video = document.getElementById('video');
+        startTimeText = document.getElementById('t_startTimeText');
+        endTimeText = document.getElementById('t_endTimeText');
+        currentTimeText = document.getElementById('t_currentTimeText');
+        mySliderBar = document.getElementById('sliderBar');
+        setInterval(function() {
+            displayVideoCurrentTime();
+        }, 1000 / FPS);
+        setInterval(function() {
+            checkAndPauseSelectionPlay();
+        }, 1000 / FPS);
+        document.onkeydown = KeyInputCheck;
+
+        const fld = document.getElementById('mp4Folder');
+        if (fld) fld.addEventListener('change', fbOnFolderChange);
+        const fls = document.getElementById('mp4Files');
+        if (fls) fls.addEventListener('change', fbOnFilesChange);
+        const tbody = document.getElementById('fileTableBody');
+        if (tbody) tbody.addEventListener('click', fbOnTableClick);
+        const prev = document.getElementById('prevPage');
+        if (prev) prev.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                fbRender();
+            }
+        });
+        const next = document.getElementById('nextPage');
+        if (next) next.addEventListener('click', () => {
+            const max = Math.ceil((fileEntries.length || 0) / pageSize) || 1;
+            if (currentPage < max) {
+                currentPage++;
+                fbRender();
+            }
+        });
+        const pageSel = document.getElementById('pageSize');
+        if (pageSel) pageSel.addEventListener('change', e => {
+            pageSize = parseInt(e.target.value, 10) || 10;
+            currentPage = 1;
+            fbRender();
+        });
+        const clearBtn = document.getElementById('clearFileList');
+        if (clearBtn) clearBtn.addEventListener('click', () => {
+            fbCleanup();
+            fileEntries = [];
+            currentVideoIndex = -1;
+            window.currentVideoBaseName = null;
+            fbRender();
+            fbSetStatus('');
+            if (fld) fld.value = '';
+            if (fls) fls.value = '';
+        });
+
+        // Add listener for annotation file input
+        const annoFile = document.getElementById('files');
+        if (annoFile) {
+            annoFile.addEventListener('change', handleFileSelection);
+        }
+
+        // Set initial text on page load
+        updateAnnoFileName(null);
+
+        console.log('[init] file browser ready');
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+</script>
+</body>
+</html>
