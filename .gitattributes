@@ -5,3 +5,9 @@
 *.xlsx filter=lfs diff=lfs merge=lfs -text
 *.ipynb filter=lfs diff=lfs merge=lfs -text
 *.dat filter=lfs diff=lfs merge=lfs -text
+Affective[[:space:]]Computing[[:space:]]2025/Exercise_1_material_update/MG_examples-20250921T075645Z-1-001.zip filter=lfs diff=lfs merge=lfs -text
+Affective[[:space:]]Computing[[:space:]]2025/Exercise_1_material_update/Reference_Tag_samples-20250921T075630Z-1-001.zip filter=lfs diff=lfs merge=lfs -text
+Affective[[:space:]]Computing[[:space:]]2025/Exercise_1_material_update/Exercise_1_material_update.zip filter=lfs diff=lfs merge=lfs -text
+Towards[[:space:]]Data[[:space:]]Mining[[:space:]]2025/Exercise[[:space:]]5[[:space:]]materials-20250917.zip filter=lfs diff=lfs merge=lfs -text
+Towards[[:space:]]Data[[:space:]]Mining[[:space:]]2025/Exercise42023.zip filter=lfs diff=lfs merge=lfs -text
+Towards[[:space:]]Data[[:space:]]Mining[[:space:]]2025/tdm-mysqldump.zip filter=lfs diff=lfs merge=lfs -text

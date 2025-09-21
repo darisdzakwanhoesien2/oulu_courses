@@ -1,0 +1,194 @@
+{
+  "name": "Micro-Gesture Annotation from Google Drive Video",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "micro-gesture-annotation",
+        "options": {},
+        "responseMode": "onReceived"
+      },
+      "id": "1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return [{ json: { fileId: $json.videoUrl.match(/file\\/d\\/(.+?)\\/view/)?.[1] || $json.videoId } }];"
+      },
+      "id": "2",
+      "name": "Extract File ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": "={{ $json.fileId }}",
+        "binaryPropertyName": "video"
+      },
+      "id": "3",
+      "name": "Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 2.1,
+      "position": [680, 300],
+      "credentials": {
+        "googleDriveOAuth2Api": "Your Google Drive Credentials"
+      }
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=multipart",
+        "headers": {
+          "header": [
+            {
+              "name": "Authorization",
+              "value": "Bearer ={{ $env.GEMINI_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "multipart/related; boundary=foo_bar_baz"
+            }
+          ]
+        },
+        "specifyBody": "json",
+        "jsonBody": "={\"file\": {\"display_name\": \"video.mp4\"}}",
+        "sendBinaryData": true,
+        "binaryPropertyName": "video",
+        "options": {}
+      },
+      "id": "4",
+      "name": "Upload to Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "model": "gemini-1.5-flash",
+        "text": "Analyze this video for micro-gestures. Categories: nod, eye squint, hand wave, shoulder shrug. Output JSON: [{ 'category': 'nod', 'start_time': 12.5, 'end_time': 13.2, 'confidence': 0.85, 'description': 'Subtle head dip' }]. Use timestamps in seconds. Be precise.",
+        "options": {
+          "file": "=file:///{{$node[\"Upload to Gemini\"].json[\"file\"][\"uri\"]}}",
+          "mimeType": "video/mp4"
+        }
+      },
+      "id": "5",
+      "name": "Google Gemini",
+      "type": "n8n-nodes-base.googleGemini",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "credentials": {
+        "googleGeminiApi": "Your Gemini API Key"
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const responseText = $input.all()[0].json.content[0].parts[0].text;\ntry {\n  const annotations = JSON.parse(responseText);\n  return [{ json: { annotations } }];\n} catch (e) {\n  return [{ json: { error: 'Invalid JSON from Gemini', raw: responseText } }];\n}"
+      },
+      "id": "6",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": "Your Sheet ID",
+        "range": "A:E",
+        "options": {
+          "valueInputMode": "USER_ENTERED"
+        }
+      },
+      "id": "7",
+      "name": "Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.3,
+      "position": [1560, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": "Your Google Sheets Credentials"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract File ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract File ID": {
+      "main": [
+        [
+          {
+            "node": "Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive": {
+      "main": [
+        [
+          {
+            "node": "Upload to Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Gemini": {
+      "main": [
+        [
+          {
+            "node": "Google Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1",
+  "meta": {},
+  "id": "unique_id_here",
+  "tags": []
+}
+
