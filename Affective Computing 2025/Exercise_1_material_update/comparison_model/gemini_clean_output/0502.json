@@ -1,0 +1,170 @@
+[
+  {
+    "category": 99,
+    "description": "Speaker touching the neck.",
+    "start_time": 0.18,
+    "end_time": 0.19,
+    "confidence": 0.9
+  },
+  {
+    "category": 12,
+    "description": "Touching the neck.",
+    "start_time": 0.22,
+    "end_time": 0.23,
+    "confidence": 0.9
+  },
+  {
+    "category": 12,
+    "description": "Touching the neck.",
+    "start_time": 0.23,
+    "end_time": 0.24,
+    "confidence": 0.9
+  },
+  {
+    "category": 12,
+    "description": "Touching the neck.",
+    "start_time": 0.27,
+    "end_time": 0.28,
+    "confidence": 0.9
+  },
+  {
+    "category": 12,
+    "description": "Touching the neck.",
+    "start_time": 0.28,
+    "end_time": 0.29,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker touching the neck again",
+    "start_time": 0.32,
+    "end_time": 0.33,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker touching the neck",
+    "start_time": 0.33,
+    "end_time": 0.33,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker touching the neck again",
+    "start_time": 0.34,
+    "end_time": 0.35,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker touching the neck again",
+    "start_time": 0.41,
+    "end_time": 0.41,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker touching the neck again",
+    "start_time": 0.45,
+    "end_time": 0.46,
+    "confidence": 0.9
+  },
+  {
+    "category": 8,
+    "description": "Speaker touching the right cheek",
+    "start_time": 1.12,
+    "end_time": 1.13,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker adjusting the hair.",
+    "start_time": 1.13,
+    "end_time": 1.16,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker touching the neck again",
+    "start_time": 1.18,
+    "end_time": 1.18,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker touching the neck again",
+    "start_time": 1.19,
+    "end_time": 1.19,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker scratching an ear.",
+    "start_time": 1.36,
+    "end_time": 1.37,
+    "confidence": 0.9
+  },
+  {
+    "category": 12,
+    "description": "Touching the neck.",
+    "start_time": 1.37,
+    "end_time": 1.37,
+    "confidence": 0.9
+  },
+  {
+    "category": 11,
+    "description": "Touching jaw.",
+    "start_time": 1.42,
+    "end_time": 1.44,
+    "confidence": 0.8
+  },
+  {
+    "category": 99,
+    "description": "Speaker touching the neck again",
+    "start_time": 1.51,
+    "end_time": 1.52,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker touching the neck again",
+    "start_time": 2.02,
+    "end_time": 2.03,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker touching the neck again",
+    "start_time": 2.10,
+    "end_time": 2.10,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker scratching an ear.",
+    "start_time": 2.28,
+    "end_time": 2.29,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker scratching an ear.",
+    "start_time": 3.10,
+    "end_time": 3.11,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker scratching an ear.",
+    "start_time": 3.26,
+    "end_time": 3.28,
+    "confidence": 0.9
+  },
+  {
+    "category": 99,
+    "description": "Speaker touching the hair.",
+    "start_time": 3.28,
+    "end_time": 3.28,
+    "confidence": 0.9
+  }
+]

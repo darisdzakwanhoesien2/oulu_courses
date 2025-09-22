@@ -1,0 +1,124 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "video_url",
+              "value": "https://drive.google.com/uc?id=YOUR_VIDEO_ID&export=download"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "Set_Video_URL",
+      "name": "Set Video URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api-inference.huggingface.co/models/openmmlab/mmaction-recognition",
+        "options": {},
+        "authentication": "headerAuth",
+        "sendBody": true,
+        "jsonParameters": true,
+        "bodyParametersJson": "{\"inputs\": \"{{ $json[\"video_url\"] }}\"}"
+      },
+      "id": "HTTP_Gesture_Analysis",
+      "name": "HTTP Gesture Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "HuggingFaceHeaderAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "return $json.map(item => ({\n  category: item.label || 'unknown',\n  confidence: item.score || 0,\n  start_time: item.start_time || null,\n  end_time: item.end_time || null\n}));"
+      },
+      "id": "Normalize_Gestures",
+      "name": "Normalize Gestures",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "prompt": "Analyze the following detected gestures and classify them into micro-gesture categories. Return as JSON array with fields: category, description, start_time, end_time, confidence.\n\nDetected gestures: {{ JSON.stringify($json) }}",
+        "model": "gpt2"
+      },
+      "id": "LLM_Chain",
+      "name": "Basic LLM Chain",
+      "type": "n8n-nodes-base.llmChain",
+      "typeVersion": 1,
+      "position": [950, 300],
+      "credentials": {
+        "huggingFaceApi": {
+          "id": "YOUR_HF_API_CRED_ID",
+          "name": "HuggingFaceApi"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "Debug_Output",
+      "name": "Debug Output",
+      "type": "n8n-nodes-base.debug",
+      "typeVersion": 1,
+      "position": [1200, 300]
+    }
+  ],
+  "connections": {
+    "Set Video URL": {
+      "main": [
+        [
+          {
+            "node": "HTTP Gesture Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Gesture Analysis": {
+      "main": [
+        [
+          {
+            "node": "Normalize Gestures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Gestures": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Debug Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

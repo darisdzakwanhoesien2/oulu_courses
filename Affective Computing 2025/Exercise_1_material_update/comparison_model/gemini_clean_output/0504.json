@@ -1,0 +1,58 @@
+[
+  {
+    "category": 8,
+    "description": "Touches upper lip with fingers.",
+    "start_time": 0.55,
+    "end_time": 0.56,
+    "confidence": 0.85
+  },
+  {
+    "category": 8,
+    "description": "Touches the left side of his nose with his finger.",
+    "start_time": 0.55,
+    "end_time": 0.59,
+    "confidence": 0.88
+  },
+  {
+    "category": 7,
+    "description": "Involuntary rubbing of nose and upper lip, covering lower face.",
+    "start_time": 3.36,
+    "end_time": 3.38,
+    "confidence": 0.87
+  },
+  {
+    "category": 9,
+    "description": "Light touch to the back of his neck.",
+    "start_time": 3.48,
+    "end_time": 3.49,
+    "confidence": 0.88
+  },
+  {
+    "category": 1,
+    "description": "Correcting head position, a sign of confidence to present a good profile to the audience and reporters.",
+    "start_time": 4.02,
+    "end_time": 4.08,
+    "confidence": 0.78
+  },
+  {
+    "category": 8,
+    "description": "Cover mouth by hand",
+    "start_time": 5.44,
+    "end_time": 5.46,
+    "confidence": 0.85
+  },
+  {
+    "category": 7,
+    "description": "Uncomfortable nose rub and adjustment after laughing",
+    "start_time": 6.44,
+    "end_time": 6.47,
+    "confidence": 0.80
+  },
+  {
+    "category": 8,
+    "description": "Touching upper lip with fingers.",
+    "start_time": 23.24,
+    "end_time": 23.26,
+    "confidence": 0.82
+  }
+]

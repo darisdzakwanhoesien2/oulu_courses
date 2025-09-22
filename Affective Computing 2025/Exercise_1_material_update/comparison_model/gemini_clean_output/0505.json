@@ -1,0 +1,44 @@
+[
+  {
+    "category": 3,
+    "description": "Adjusts/touches the hat",
+    "start_time": 0.0,
+    "end_time": 0.4,
+    "confidence": 0.9
+  },
+  {
+    "category": 23,
+    "description": "Rubbing/holding hands",
+    "start_time": 4.4,
+    "end_time": 7.9,
+    "confidence": 0.7
+  },
+  {
+    "category": 23,
+    "description": "Rubbing/holding hands",
+    "start_time": 137.5,
+    "end_time": 140.8,
+    "confidence": 0.7
+  },
+  {
+    "category": 3,
+    "description": "Adjusts/touches the hat",
+    "start_time": 344.7,
+    "end_time": 345.2,
+    "confidence": 0.8
+  },
+  {
+    "category": 8,
+    "description": "Touches face",
+    "start_time": 538.4,
+    "end_time": 538.8,
+    "confidence": 0.8
+  },
+  {
+    "category": 3,
+    "description": "Takes off/touches the hat",
+    "start_time": 550.2,
+    "end_time": 550.5,
+    "confidence": 0.9
+  }
+]

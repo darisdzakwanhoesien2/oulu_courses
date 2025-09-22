@@ -1,0 +1,114 @@
+[
+  {
+    "category": 99,
+    "description": "Looking down",
+    "start_time": 0.0,
+    "end_time": 0.04,
+    "confidence": 0.95
+  },
+  {
+    "category": 13,
+    "description": "Adjusting hair",
+    "start_time": 1.58,
+    "end_time": 1.7,
+    "confidence": 0.9
+  },
+  {
+    "category": 13,
+    "description": "Adjusting hair",
+    "start_time": 2.92,
+    "end_time": 2.99,
+    "confidence": 0.85
+  },
+  {
+    "category": 13,
+    "description": "Adjusting hair",
+    "start_time": 10.79,
+    "end_time": 10.85,
+    "confidence": 0.9
+  },
+  {
+    "category": 12,
+    "description": "Scratching neck",
+    "start_time": 16.25,
+    "end_time": 16.59,
+    "confidence": 0.8
+  },
+  {
+    "category": 13,
+    "description": "Adjusting hair",
+    "start_time": 20.17,
+    "end_time": 20.24,
+    "confidence": 0.9
+  },
+  {
+    "category": 13,
+    "description": "Adjusting hair",
+    "start_time": 28.24,
+    "end_time": 28.28,
+    "confidence": 0.85
+  },
+  {
+    "category": 13,
+    "description": "Adjusting hair",
+    "start_time": 48.35,
+    "end_time": 48.46,
+    "confidence": 0.8
+  },
+  {
+    "category": 12,
+    "description": "Scratching neck",
+    "start_time": 53.78,
+    "end_time": 54.02,
+    "confidence": 0.85
+  },
+  {
+    "category": 12,
+    "description": "Touching neck",
+    "start_time": 56.51,
+    "end_time": 56.59,
+    "confidence": 0.9
+  },
+  {
+    "category": 12,
+    "description": "Touching neck",
+    "start_time": 56.99,
+    "end_time": 57.13,
+    "confidence": 0.8
+  },
+  {
+    "category": 13,
+    "description": "Adjusting hair",
+    "start_time": 58.19,
+    "end_time": 58.25,
+    "confidence": 0.8
+  },
+  {
+    "category": 29,
+    "description": "Pressing lips",
+    "start_time": 100.91,
+    "end_time": 100.97,
+    "confidence": 0.9
+  },
+  {
+    "category": 8,
+    "description": "Scratching face",
+    "start_time": 145.7,
+    "end_time": 145.83,
+    "confidence": 0.85
+  },
+  {
+    "category": 12,
+    "description": "Touching neck",
+    "start_time": 147.47,
+    "end_time": 147.59,
+    "confidence": 0.9
+  },
+  {
+    "category": 13,
+    "description": "Adjusting hair",
+    "start_time": 199.28,
+    "end_time": 199.32,
+    "confidence": 0.9
+  }
+]

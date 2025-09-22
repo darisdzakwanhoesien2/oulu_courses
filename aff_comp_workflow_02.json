@@ -1,0 +1,366 @@
+{
+  "name": "Affective Computing with LLaVA-Video-Llama-3.1-8B",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        320,
+        512
+      ],
+      "id": "8351074e-a7c1-4d5b-a806-27bb43f76763",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "1WV00T4TNt1G5GKAIf7Ka2yUPoCjUh9Mu",
+          "mode": "list",
+          "cachedResultName": "0497.mp4",
+          "cachedResultUrl": "https://drive.google.com/file/d/1WV00T4TNt1G5GKAIf7Ka2yUPoCjUh9Mu/view?usp=drivesdk"
+        },
+        "options": {
+          "binaryPropertyName": "data"
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        496,
+        512
+      ],
+      "id": "f3d9d882-3cd6-4551-8a51-2eb332067abf",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "nU1H5pGUXyYdDShM",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "data",
+        "name": "temp_video.mp4",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1xHUrgN83reNrJO3OBEVyJh6iVMEsiicS",
+          "mode": "list",
+          "cachedResultName": "Affective Computing 2025",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1xHUrgN83reNrJO3OBEVyJh6iVMEsiicS"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        864,
+        336
+      ],
+      "id": "7d3405a3-4a4e-4c2b-90af-40d48f4a28d5",
+      "name": "Upload video to Drive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "nU1H5pGUXyYdDShM",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "share",
+        "fileId": "={{ $node[\"Upload video to Drive\"].json[\"id\"] }}",
+        "role": "reader",
+        "type": "anyone",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1088,
+        336
+      ],
+      "id": "532f06de-9b49-4c86-849a-d92f3e532cd5",
+      "name": "Share video publicly",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "nU1H5pGUXyYdDShM",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1ea390b9-3371-4a3a-8741-bd6ec74dc64b",
+              "name": "video_url",
+              "type": "string",
+              "value": "https://drive.google.com/uc?id={{ $node[\"Upload video to Drive\"].json[\"id\"] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1fbf1d5f-6ee6-416b-aa11-3f64a66dc1cc",
+      "name": "Set video URL",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1312,
+        336
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-hf-endpoint.hf.co",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"video_url\": \"{{ $node[\"Set video URL\"].json[\"video_url\"] }}\",\n  \"prompt\": \"Analyze the video in detail to identify micro-gestures, focusing on the following categories: 1. Turtle neck, 2. Bulging face, deep breath, 3. Touch hat, 4. Touching or scratching head, 5. Touching or scratching forehead, 6. Cover face, 7. Rubbing eyes, 8. Scratching or touching facial parts, 9. Touching ears, 10. Biting nails, 11. Touching jaw, 12. Touching or scratching neck, 13. Playing or adjusting hair, 14. Buckle button / pull shirt collar / adjust tie, 15. Touching or covering suprasternal notch, 16. Scratching back, 17. Folding arms, 18. Dust off clothes, 19. Put arms behind body, 20. Moving torso, 21. Sit straight, 22. Scratching or touching arms, 23. Rubbing or holding hands, 24. Crossing fingers, 25. Minaret gesture, 26. Playing with other objects, 27. Hold back arms, 28. Head up, 29. Pressing lips, 30. Arms akimbo, 31. Shake shoulders, 99. Non-micro gestures. For each detected micro-gesture, provide the category number, a description, and precise start and end times in seconds (e.g., start_time: 12.5, end_time: 13.2). Output the results as a JSON array, like: [{ 'category': 1, 'description': 'Subtle turtle neck posture', 'start_time': 12.5, 'end_time': 13.2, 'confidence': 0.85 }]. Focus only on clear matches and include a confidence score (0 to 1).\",\n  \"generationConfig\": {\n    \"temperature\": 1.4,\n    \"top_k\": 40,\n    \"top_p\": 0.95,\n    \"max_new_tokens\": 8192\n  }\n}",
+        "options": {}
+      },
+      "id": "440739e0-26fb-4ca3-946c-01381fd683c3",
+      "name": "Analyze video LLaVA",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1520,
+        336
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1ea390b9-3371-4a3a-8741-bd6ec74dc64b",
+              "name": "videoDescription",
+              "type": "string",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1fbf1d5f-6ee6-416b-aa11-3f64a66dc1cc",
+      "name": "Get Result",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1728,
+        336
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "content": "## Configuration\nDefine the video URL you want to analyze.\n",
+        "height": 300,
+        "width": 220,
+        "color": 5
+      },
+      "id": "007bdbdd-424e-427a-bfe0-5c635a8bf632",
+      "name": "Sticky Note8",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        368,
+        192
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Video Processing Pipeline\n\nThis section handles the complete video processing workflow:\n\n1. UPLOAD TO DRIVE: Upload the video binary to Google Drive and share it publicly to get a downloadable URL.\n\n2. ANALYZE: Send the URL and prompt to your Hugging Face Inference Endpoint for LLaVA analysis. Customize the prompt in the \"Analyze video LLaVA\" node.\n",
+        "height": 460,
+        "width": 820,
+        "color": 4
+      },
+      "id": "bb1f5c67-4060-4feb-ac50-04c4879c7117",
+      "name": "Sticky Note10",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        624,
+        32
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "toJson",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1952,
+        336
+      ],
+      "id": "e5d80113-2ecd-44cc-b036-9efaa7151126",
+      "name": "Convert to File1"
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "data",
+        "name": "0499_output.json",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1xHUrgN83reNrJO3OBEVyJh6iVMEsiicS",
+          "mode": "list",
+          "cachedResultName": "Affective Computing 2025",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1xHUrgN83reNrJO3OBEVyJh6iVMEsiicS"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2160,
+        336
+      ],
+      "id": "644539f4-8eb3-4243-9bf2-97efb0674a8b",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "nU1H5pGUXyYdDShM",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "data",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "data",
+              "fieldType": "file"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        640,
+        336
+      ],
+      "id": "7fcff860-aa76-4d84-a207-3cd9b3e0e0d2",
+      "name": "On form submission",
+      "webhookId": "a13e89e3-9ff3-4855-b8b0-7799e499f039"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Download file": {
+      "main": [
+        []
+      ]
+    },
+    "Upload video to Drive": {
+      "main": [
+        [
+          {
+            "node": "Share video publicly",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Share video publicly": {
+      "main": [
+        [
+          {
+            "node": "Set video URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set video URL": {
+      "main": [
+        [
+          {
+            "node": "Analyze video LLaVA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze video LLaVA": {
+      "main": [
+        [
+          {
+            "node": "Get Result",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Convert to File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File1": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Upload video to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "31d19598-cb15-44cf-b39b-c85c6acd3800",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f119b1294ba4c27e90e7fabc1706fce4068601ee23fbcbacb9545a19154498c4"
+  },
+  "id": "7meZQ4VD1d5NW9fA",
+  "tags": []
+}

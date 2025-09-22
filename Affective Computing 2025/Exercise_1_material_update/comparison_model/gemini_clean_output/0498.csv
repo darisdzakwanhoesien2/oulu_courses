@@ -1,0 +1,16 @@
+﻿category,description,start_time,end_time,confidence
+23,Rubbing or holding hands,0.03,0.34,0.95
+23,Rubbing or holding hands,0.56,0.83,0.95
+23,Rubbing or holding hands,4.62,4.77,0.95
+23,Rubbing or holding hands,9.78,10.03,0.95
+23,Rubbing or holding hands,21.28,21.38,0.95
+23,Rubbing or holding hands,24.97,25.15,0.95
+8,Scratching or touching facial parts,33.47,33.79,0.7
+23,Rubbing or holding hands,34.49,35.3,0.95
+8,Scratching or touching facial parts,51.85,52,0.7
+23,Rubbing or holding hands,53.73,53.94,0.95
+8,Scratching or touching facial parts,57.95,58.09,0.7
+23,Rubbing or holding hands,58.58,58.86,0.95
+23,Rubbing or holding hands,102.11,102.54,0.95
+23,Rubbing or holding hands,112.58,113.53,0.95
+13,Playing or adjusting hair,114.97,115.33,0.75

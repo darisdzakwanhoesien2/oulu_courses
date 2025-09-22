@@ -1,0 +1,65 @@
+[
+  {
+    "category": 17,
+    "description": "Arms Folded Across Chest",
+    "start_time": 55.658,
+    "end_time": 57.068,
+    "confidence": 0.9
+  },
+  {
+    "category": 17,
+    "description": "Arms Folded Across Chest",
+    "start_time": 127.856,
+    "end_time": 128.256,
+    "confidence": 0.9
+  },
+  {
+    "category": 4,
+    "description": "Touching or scratching head",
+    "start_time": 183.643,
+    "end_time": 184.123,
+    "confidence": 0.8
+  },
+  {
+    "category": 17,
+    "description": "Arms Folded Across Chest",
+    "start_time": 209.428,
+    "end_time": 209.768,
+    "confidence": 0.9
+  },
+  {
+    "category": 17,
+    "description": "Arms Folded Across Chest",
+    "start_time": 361.778,
+    "end_time": 362.518,
+    "confidence": 0.9
+  },
+  {
+    "category": 4,
+    "description": "Touching or scratching head",
+    "start_time": 521.196,
+    "end_time": 521.936,
+    "confidence": 0.8
+  },
+  {
+    "category": 12,
+    "description": "Touching or scratching neck",
+    "start_time": 521.326,
+    "end_time": 522.796,
+    "confidence": 0.9
+  },
+  {
+    "category": 4,
+    "description": "Touching or scratching head",
+    "start_time": 543.143,
+    "end_time": 543.583,
+    "confidence": 0.8
+  },
+  {
+    "category": 12,
+    "description": "Touching or scratching neck",
+    "start_time": 543.363,
+    "end_time": 544.873,
+    "confidence": 0.9
+  }
+]

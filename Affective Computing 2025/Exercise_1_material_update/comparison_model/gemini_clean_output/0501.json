@@ -1,0 +1,30 @@
+[
+  {
+    "category": 8,
+    "description": "Touching facial parts (nose)",
+    "start_time": 14.0,
+    "end_time": 15.4,
+    "confidence": 0.90
+  },
+  {
+    "category": 22,
+    "description": "Scratching arms",
+    "start_time": 14.7,
+    "end_time": 15.3,
+    "confidence": 0.85
+  },
+  {
+    "category": 99,
+    "description": "Smiling",
+    "start_time": 26.0,
+    "end_time": 38.9,
+    "confidence": 0.95
+  },
+  {
+    "category": 99,
+    "description": "Arms up (victory)",
+    "start_time": 48.7,
+    "end_time": 49.2,
+    "confidence": 0.95
+  }
+]
