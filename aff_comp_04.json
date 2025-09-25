@@ -1,0 +1,38 @@
+{
+  "name": "Scholarship Parser Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "scholarship-input",
+        "options": {}
+      },
+      "id": "FormTriggerNode",
+      "name": "Form Trigger",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const inputText = $json[\"text\"] || \"\";\n\n// Extract name from first bold mention\nconst nameMatch = inputText.match(/\\*\\*(.*?)\\*\\*/);\nconst name = nameMatch ? nameMatch[1] : \"Unknown\";\n\n// Extract known facts\nlet known = [];\nconst knownSection = inputText.split(\"## What is Known\")[1]?.split(\"## What Is\")[0] || \"\";\nconst knownItems = knownSection.split(/\\n\\d+\\.\\s/).filter(x => x.trim());\n\nfor (const item of knownItems) {\n  const titleLine = item.split(\"\\n\")[0].trim();\n  const details = item.trim();\n  const linkMatches = [...details.matchAll(/\\((https?:[^\\)]+)\\)/g)].map(m => m[1]);\n  known.push({ title: titleLine, details, links: linkMatches });\n}\n\n// Extract Not Specified table\nlet notSpecified = [];\nconst notSpecSection = inputText.split(\"## What Is *Not* Specified\")[1]?.split(\"## Direct Official Links\")[0] || \"\";\nconst rows = notSpecSection.split(\"|\\n\").filter(r => r.includes(\"|\"));\nfor (const row of rows) {\n  const cols = row.split(\"|\").map(c => c.trim()).filter(Boolean);\n  if (cols.length >= 2) {\n    notSpecified.push({ item: cols[0], unclear: cols[1] });\n  }\n}\n\n// Extract links\nlet links = [];\nconst linksSection = inputText.split(\"## Direct Official Links\")[1] || \"\";\nconst linkMatches = [...linksSection.matchAll(/\\* (.*?)—.*?(https?:[^\\s]+)/g)];\nfor (const lm of linkMatches) {\n  links.push({ title: lm[1].trim(), url: lm[2].trim() });\n}\n\nreturn [{\n  json: {\n    name,\n    description: inputText.substring(0, 200) + \"...\",\n    known,\n    not_specified: notSpecified,\n    links\n  }\n}];"
+      },
+      "id": "FunctionNode",
+      "name": "Parse Scholarship Text",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [500, 300]
+    }
+  ],
+  "connections": {
+    "Form Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Scholarship Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+}}

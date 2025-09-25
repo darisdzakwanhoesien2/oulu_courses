@@ -1,0 +1,87 @@
+[
+  {
+    "parameters": {
+      "conditions": {
+        "string": [
+          {
+            "value1": "={{$json.scholarship_url}}",
+            "operation": "startsWith",
+            "value2": "http"
+          }
+        ]
+      }
+    },
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2,
+    "position": [2000, 200],
+    "name": "IF Valid URL"
+  },
+  {
+    "parameters": {
+      "method": "HEAD",
+      "url": "={{$json.scholarship_url}}",
+      "options": {
+        "timeout": 5,
+        "fullResponse": true
+      }
+    },
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [2200, 200],
+    "name": "HTTP Check URL"
+  },
+  {
+    "parameters": {
+      "conditions": {
+        "number": [
+          {
+            "value1": "={{$json.statusCode || $json.body?.statusCode || 0}}",
+            "operation": "between",
+            "value2": 200,
+            "value3": 399
+          }
+        ]
+      }
+    },
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2,
+    "position": [2400, 200],
+    "name": "IF Status OK"
+  },
+  {
+    "parameters": {
+      "operation": "append",
+      "documentId": "YOUR_SHEET_ID_HERE",
+      "sheetName": "Scholarship_Errors",
+      "columns": {
+        "mappingMode": "defineBelow",
+        "value": {
+          "url": "={{$json.scholarship_url}}",
+          "reason": "Invalid or missing protocol"
+        }
+      }
+    },
+    "type": "n8n-nodes-base.googleSheets",
+    "typeVersion": 4.7,
+    "position": [2000, 400],
+    "name": "Log Invalid URL"
+  },
+  {
+    "parameters": {
+      "operation": "append",
+      "documentId": "YOUR_SHEET_ID_HERE",
+      "sheetName": "Scholarship_Errors",
+      "columns": {
+        "mappingMode": "defineBelow",
+        "value": {
+          "url": "={{$json.scholarship_url}}",
+          "reason": "HTTP check failed (status: {{$json.statusCode || $json.body?.statusCode || \"unknown\"}})"
+        }
+      }
+    },
+    "type": "n8n-nodes-base.googleSheets",
+    "typeVersion": 4.7,
+    "position": [2600, 400],
+    "name": "Log Bad Status"
+  }
+]
