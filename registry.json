@@ -27,42 +27,50 @@
       ]
     },
     {
-  "id": "dl_assign_1",
-  "title": "Deep Learning 2024 – Assignment 1",
-  "course": "Deep Learning 2024",
-  "type": "notebook",
-  "path": "deep_learning/DL2024_assign1_darisdzakwan_hoesien_2406778.ipynb",
-  "tags": ["deep learning", "neural networks", "numpy"],
-  "description": "Implementation of a neural network from scratch using NumPy."
-},
-{
-  "id": "dl_assign_2",
-  "title": "Deep Learning 2024 – Assignment 2",
-  "course": "Deep Learning 2024",
-  "type": "notebook",
-  "path": "deep_learning/DL2024_assign2_darisdzakwan_hoesien_2406778.ipynb",
-  "tags": ["backpropagation", "optimization", "gradient checking"],
-  "description": "Forward and backward propagation, gradient checking, and training dynamics."
-},
-{
-  "id": "dl_assign_3",
-  "title": "Deep Learning 2024 – Assignment 3",
-  "course": "Deep Learning 2024",
-  "type": "notebook",
-  "path": "deep_learning/DL2024_assign3_darisdzakwan_hoesien_2406778.ipynb",
-  "tags": ["regularization", "momentum", "hyperparameter tuning"],
-  "description": "Training deep networks with momentum, weight decay, and tuning strategies."
-},
-{
-  "id": "dl_assign_4",
-  "title": "Deep Learning 2024 – Assignment 4",
-  "course": "Deep Learning 2024",
-  "type": "notebook",
-  "path": "deep_learning/DL2024_assign4_darisdzakwan_hoesien_2406778.ipynb",
-  "tags": ["batch normalization", "training stability"],
-  "description": "Advanced training techniques including batch normalization and mini-batching."
-},
-
+        "id": "dl_assign_1",
+        "title": "Deep Learning 2024 – Assignment 1",
+        "course": "Deep Learning 2024",
+        "type": "notebook",
+        "path": "deep_learning/DL2024_assign1_darisdzakwan_hoesien_2406778.ipynb",
+        "tags": ["deep learning", "neural networks", "numpy"],
+        "description": "Implementation of a neural network from scratch using NumPy."
+    },
+    {
+        "id": "dl_assign_2",
+        "title": "Deep Learning 2024 – Assignment 2",
+        "course": "Deep Learning 2024",
+        "type": "notebook",
+        "path": "deep_learning/DL2024_assign2_darisdzakwan_hoesien_2406778.ipynb",
+        "tags": ["backpropagation", "optimization", "gradient checking"],
+        "description": "Forward and backward propagation, gradient checking, and training dynamics."
+    },
+    {
+        "id": "dl_assign_3",
+        "title": "Deep Learning 2024 – Assignment 3",
+        "course": "Deep Learning 2024",
+        "type": "notebook",
+        "path": "deep_learning/DL2024_assign3_darisdzakwan_hoesien_2406778.ipynb",
+        "tags": ["regularization", "momentum", "hyperparameter tuning"],
+        "description": "Training deep networks with momentum, weight decay, and tuning strategies."
+    },
+    {
+        "id": "dl_assign_4",
+        "title": "Deep Learning 2024 – Assignment 4",
+        "course": "Deep Learning 2024",
+        "type": "notebook",
+        "path": "deep_learning/DL2024_assign4_darisdzakwan_hoesien_2406778.ipynb",
+        "tags": ["batch normalization", "training stability"],
+        "description": "Advanced training techniques including batch normalization and mini-batching."
+    },
+    {
+        "id": "data_mining_final",
+        "title": "Data Mining Project - Customer Personality Analysis",
+        "course": "Data Mining Project",
+        "type": "notebook",
+        "path": "datamining/progress_final_read_again.ipynb",
+        "tags": [],
+        "description": ""
+    },
     {
       "id": "tdm_ex7",
       "title": "Towards Data Mining – Exercise 7",

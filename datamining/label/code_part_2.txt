@@ -1,0 +1,2044 @@
+# progress_001.ipynb
+### Cell 1: Markdown
+## Data loading
+
+### Subtask:
+Load the marketing campaign dataset.
+
+
+### Cell 2: Markdown
+
+
+### Cell 3: Markdown
+**Reasoning**:
+Import pandas and load the dataset into a DataFrame named `df`, then print its shape and display the first few rows.
+
+
+
+### Cell 4: Code
+import pandas as pd
+
+df = pd.read_csv('marketing_campaign.csv', sep='\t')
+print(df.shape)
+display(df.head())
+
+### Cell 5: Markdown
+## Data exploration
+
+### Subtask:
+Explore the dataset to understand the variables, data types, missing values, and distributions.  Analyze the correlation between variables and identify potential predictors for customer purchases.
+
+
+### Cell 6: Markdown
+**Reasoning**:
+Start by exploring the dataset using `.info()`, `.shape`, and `.describe()` to understand the variables, data types, and distributions.
+
+
+
+### Cell 7: Code
+# Display basic information about the DataFrame
+print(df.info())
+
+# Check the number of rows and columns
+print(df.shape)
+
+# Get a statistical summary of numerical features
+display(df.describe())
+
+### Cell 8: Markdown
+**Reasoning**:
+Explore missing values in the dataset using `.isnull().sum()` and decide on a strategy for handling them.
+
+
+
+### Cell 9: Code
+# Identify columns with missing values
+missing_values = df.isnull().sum()
+print(missing_values[missing_values > 0])
+
+# Decide on a strategy for handling missing values
+# For example, we can impute missing income values with the median income.
+median_income = df['Income'].median()
+df['Income'].fillna(median_income, inplace=True)
+
+### Cell 10: Markdown
+**Reasoning**:
+Analyze the distribution of numerical features using histograms and box plots, and analyze the frequency of categorical features using `.value_counts()`.
+
+
+
+### Cell 11: Code
+import matplotlib.pyplot as plt
+
+# 4. Data Distribution
+plt.figure(figsize=(15, 10))
+
+plt.subplot(2, 3, 1)
+plt.hist(df['MntWines'], bins=20)
+plt.title('MntWines Distribution')
+
+plt.subplot(2, 3, 2)
+plt.hist(df['MntFruits'], bins=20)
+plt.title('MntFruits Distribution')
+
+plt.subplot(2, 3, 3)
+plt.hist(df['MntMeatProducts'], bins=20)
+plt.title('MntMeatProducts Distribution')
+
+plt.subplot(2, 3, 4)
+plt.hist(df['Income'], bins=20)
+plt.title('Income Distribution')
+
+plt.subplot(2, 3, 5)
+plt.hist(df['Year_Birth'], bins=20)
+plt.title('Year_Birth Distribution')
+
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(15, 5))
+
+plt.subplot(1, 3, 1)
+plt.boxplot(df['MntWines'])
+plt.title('MntWines Boxplot')
+
+plt.subplot(1, 3, 2)
+plt.boxplot(df['Income'])
+plt.title('Income Boxplot')
+
+plt.subplot(1, 3, 3)
+plt.boxplot(df['Year_Birth'])
+plt.title('Year_Birth Boxplot')
+
+plt.tight_layout()
+plt.show()
+
+### Cell 12: Code
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Analyze the distribution of numerical features
+numerical_features = df.select_dtypes(include=['int64', 'float64']).columns
+for feature in numerical_features:
+  plt.figure(figsize=(8, 4))
+  plt.hist(df[feature], bins=20)
+  plt.title(f'Distribution of {feature}')
+  plt.xlabel(feature)
+  plt.ylabel('Frequency')
+  plt.show()
+
+# Analyze the frequency of categorical features
+categorical_features = df.select_dtypes(include=['object']).columns
+for feature in categorical_features:
+  print(f'\nFrequency of {feature}:')
+  print(df[feature].value_counts())
+
+# Visualize the distribution of relevant variables
+plt.figure(figsize=(10, 6))
+sns.boxplot(x='Education', y='Income', data=df)
+plt.title('Income Distribution by Education Level')
+plt.show()
+
+plt.figure(figsize=(10, 6))
+sns.boxplot(x='Marital_Status', y='Income', data=df)
+plt.title('Income Distribution by Marital Status')
+plt.show()
+
+
+### Cell 13: Markdown
+**Reasoning**:
+Analyze the correlation between variables using `.corr()` and visualize it using a heatmap to identify potential predictors for customer purchases.
+
+
+
+### Cell 14: Markdown
+**Reasoning**:
+The previous code failed because `.corr()` cannot handle non-numerical columns. We need to calculate the correlation only for numerical features.
+
+
+
+### Cell 15: Code
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Analyze the correlation between numerical variables
+numerical_features = df.select_dtypes(include=['int64', 'float64']).columns
+correlation_matrix = df[numerical_features].corr()
+
+# Visualize the correlation using a heatmap
+plt.figure(figsize=(15, 10))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f")
+plt.title('Correlation Matrix of Numerical Features')
+plt.show()
+
+# Identify variables that have a strong correlation with spending behavior
+# For example, we can look at the correlation between 'MntWines' and other variables.
+print(correlation_matrix['MntWines'].sort_values(ascending=False))
+
+### Cell 16: Markdown
+## Data cleaning
+
+### Subtask:
+Clean the data by handling missing values and outliers.
+
+
+### Cell 17: Markdown
+**Reasoning**:
+Identify and handle missing values in the dataframe.
+
+
+
+### Cell 18: Code
+# Identify columns with missing values
+missing_values = df.isnull().sum()
+print("Missing values in each column:\n", missing_values)
+
+# Median and mean income imputation
+# Handle missing values in 'Income' column by imputing with the median income
+df['Income'].fillna(df['Income'].median(), inplace=True)
+# df['Income'].fillna(df['Income'].mean(), inplace=True)
+
+# Check if any missing values remain
+missing_values_after_handling = df.isnull().sum()
+print("\nMissing values after handling:\n", missing_values_after_handling)
+
+
+### Cell 19: Markdown
+# Outlier Handling
+**Reasoning Options**: currently 2
+1. Handle outliers in 'Income', 'MntWines', 'MntFruits', and 'MntMeatProducts' by Winsorization, capping the extreme values at the 99th percentile.
+2. Handle outliers in numerical features, focusing on 'Income' to address potential extreme values.
+
+
+
+### Cell 20: Markdown
+
+
+### Cell 21: Code
+# for column in ['Income', 'MntWines', 'MntFruits', 'MntMeatProducts']:
+#   upper_limit = df[column].quantile(0.99)
+#   df[column] = df[column].clip(upper=upper_limit)
+
+
+### Cell 22: Code
+import matplotlib.pyplot as plt
+
+# Analyze the distribution of 'Income' using a box plot
+plt.figure(figsize=(8, 4))
+plt.boxplot(df['Income'])
+plt.title('Box Plot of Income')
+plt.ylabel('Income')
+plt.show()
+
+# Identify outliers using the Interquartile Range (IQR) method
+Q1 = df['Income'].quantile(0.25)
+Q3 = df['Income'].quantile(0.75)
+IQR = Q3 - Q1
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+
+# Filter out outliers based on the IQR method
+df_filtered = df[(df['Income'] >= lower_bound) & (df['Income'] <= upper_bound)]
+
+# Compare the number of rows before and after outlier removal
+print(f"Number of rows before removing outliers: {df.shape[0]}")
+print(f"Number of rows after removing outliers: {df_filtered.shape[0]}")
+
+# Analyze the distribution of 'Income' after removing outliers
+plt.figure(figsize=(8, 4))
+plt.boxplot(df_filtered['Income'])
+plt.title('Box Plot of Income (After Outlier Removal)')
+plt.ylabel('Income')
+plt.show()
+
+
+
+### Cell 23: Markdown
+**Reasoning**:
+Check for and handle duplicate rows in the dataframe to ensure data consistency.
+
+### Cell 24: Code
+# Check for duplicate rows
+duplicate_rows = df[df.duplicated()]
+if not duplicate_rows.empty:
+  print("Duplicate rows found:")
+  display(duplicate_rows)
+  # Remove duplicate rows, keeping the first occurrence
+  df.drop_duplicates(inplace=True)
+  print("Duplicate rows removed.")
+else:
+  print("No duplicate rows found.")
+
+### Cell 25: Markdown
+**Reasoning**:
+Check the data consistency and accuracy by examining any inconsistencies in data types or unexpected values in columns. Specifically, check for unreasonable values in age, income, or other features.
+
+
+
+### Cell 26: Code
+# Check for unreasonable values in 'Year_Birth' (age)
+current_year = 2025
+df_filtered['Age'] = current_year - df_filtered['Year_Birth']
+
+# Analyze the distribution of 'Age'
+plt.figure(figsize=(8, 4))
+plt.hist(df_filtered['Age'], bins=20)
+plt.title('Distribution of Age')
+plt.xlabel('Age')
+plt.ylabel('Frequency')
+plt.show()
+
+# Check for any impossible ages, e.g., age less than 18 or greater than 100
+print("Rows with age less than 18:\n", df_filtered[df_filtered['Age'] < 18])
+print("\nRows with age greater than 100:\n", df_filtered[df_filtered['Age'] > 100])
+
+# Examine 'Income' for unreasonable values (e.g., negative income)
+print("\nRows with negative income:\n", df_filtered[df_filtered['Income'] < 0])
+
+
+
+### Cell 27: Markdown
+**Reasoning**:
+Based on the previous analysis, there are some customers with very high age (over 100 years old). These are likely errors in the data and should be removed.
+
+
+
+### Cell 28: Code
+# Remove rows with age greater than 100
+df_cleaned = df_filtered[df_filtered['Age'] <= 100]
+
+# Print the number of rows after removing outliers and unreasonable age values
+print(f"Number of rows after cleaning: {df_cleaned.shape[0]}")
+
+
+### Cell 29: Markdown
+## Data wrangling
+
+### Subtask:
+Prepare the data for modeling by creating new features and transforming categorical variables.
+
+
+### Cell 30: Markdown
+**Reasoning**:
+Create new features and transform categorical variables as per the instructions.
+
+
+
+### Cell 31: Code
+# Feature Creation
+df_wrangled = df_cleaned.copy()
+df_wrangled['TotalSpending'] = df_wrangled['MntWines'] + df_wrangled['MntFruits'] + df_wrangled['MntMeatProducts'] + \
+                               df_wrangled['MntFishProducts'] + df_wrangled['MntSweetProducts'] + df_wrangled['MntGoldProds']
+df_wrangled['NumTotalPurchases'] = df_wrangled['NumWebPurchases'] + df_wrangled['NumCatalogPurchases'] + \
+                                    df_wrangled['NumStorePurchases'] + df_wrangled['NumDealsPurchases']
+df_wrangled['YearsAsCustomer'] = 2025 - df_wrangled['Year_Birth']
+
+# Categorical Variable Transformation (One-Hot Encoding)
+df_wrangled = pd.get_dummies(df_wrangled, columns=['Education', 'Marital_Status'], prefix=['Education', 'Marital_Status'])
+
+# Optional: Adjust Household Income (Example, you can refine based on your model's needs)
+# df_wrangled['HouseholdIncome'] = df_wrangled['Income'] / (1 + df_wrangled['Kidhome'] + df_wrangled['Teenhome'])
+
+display(df_wrangled.head())
+
+### Cell 32: Markdown
+## Feature engineering
+
+### Subtask:
+Engineer additional features that are relevant to customer spending behavior for the model.
+
+
+### Cell 33: Markdown
+**Reasoning**:
+Calculate the purchase frequency, recency, spending ratio, and interaction terms to engineer additional features for the model.
+
+
+
+### Cell 34: Code
+# import pandas as pd
+
+# # Convert 'Dt_Customer' to datetime objects
+# df_wrangled['Dt_Customer'] = pd.to_datetime(df_wrangled['Dt_Customer'])
+
+# # Purchase Frequency (assuming purchases are spread throughout the years as a customer)
+# df_wrangled['PurchaseFrequency'] = df_wrangled['NumTotalPurchases'] / df_wrangled['YearsAsCustomer']
+
+# # Recency of Purchase (Days since the most recent purchase)
+# latest_date = df_wrangled['Dt_Customer'].max()
+# df_wrangled['RecencyOfPurchase'] = (latest_date - df_wrangled['Dt_Customer']).dt.days
+
+# # Spending Ratio
+# df_wrangled['WineSpendingRatio'] = df_wrangled['MntWines'] / df_wrangled['TotalSpending']
+# df_wrangled['MeatSpendingRatio'] = df_wrangled['MntMeatProducts'] / df_wrangled['TotalSpending']
+# # Add more spending ratios for other product categories if necessary
+
+# # Interaction terms
+# df_wrangled['TotalSpending_Income'] = df_wrangled['TotalSpending'] * df_wrangled['Income']
+# df_wrangled['TotalSpending_Education_Graduation'] = df_wrangled['TotalSpending'] * df_wrangled['Education_Graduation']
+# df_wrangled['NumTotalPurchases_Marital_Status_Married'] = df_wrangled['NumTotalPurchases'] * df_wrangled['Marital_Status_Married']
+
+# display(df_wrangled.head())
+
+### Cell 35: Markdown
+**Reasoning**:
+Fix the error in the previous code block by using the correct date format for parsing 'Dt_Customer' column.
+
+
+
+### Cell 36: Code
+import pandas as pd
+
+# Convert 'Dt_Customer' to datetime objects
+df_wrangled['Dt_Customer'] = pd.to_datetime(df_wrangled['Dt_Customer'], format='%d-%m-%Y')
+
+# Purchase Frequency (assuming purchases are spread throughout the years as a customer)
+df_wrangled['PurchaseFrequency'] = df_wrangled['NumTotalPurchases'] / df_wrangled['YearsAsCustomer']
+
+# Recency of Purchase (Days since the most recent purchase)
+latest_date = df_wrangled['Dt_Customer'].max()
+df_wrangled['RecencyOfPurchase'] = (latest_date - df_wrangled['Dt_Customer']).dt.days
+
+# Spending Ratio
+df_wrangled['WineSpendingRatio'] = df_wrangled['MntWines'] / df_wrangled['TotalSpending']
+df_wrangled['MeatSpendingRatio'] = df_wrangled['MntMeatProducts'] / df_wrangled['TotalSpending']
+# Add more spending ratios for other product categories if necessary
+
+# Interaction terms
+df_wrangled['TotalSpending_Income'] = df_wrangled['TotalSpending'] * df_wrangled['Income']
+df_wrangled['TotalSpending_Education_Graduation'] = df_wrangled['TotalSpending'] * df_wrangled['Education_Graduation']
+df_wrangled['NumTotalPurchases_Marital_Status_Married'] = df_wrangled['NumTotalPurchases'] * df_wrangled['Marital_Status_Married']
+
+display(df_wrangled.head())
+
+### Cell 37: Markdown
+## Data splitting
+
+### Subtask:
+Split the data into training and testing sets for model development and evaluation.
+
+
+### Cell 38: Markdown
+**Reasoning**:
+Split the data into training and testing sets using `train_test_split`.
+
+
+
+### Cell 39: Code
+from sklearn.model_selection import train_test_split
+
+# Define the target variable
+y = df_wrangled['TotalSpending']
+
+# Separate the target variable from the features
+X = df_wrangled.drop('TotalSpending', axis=1)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+
+# Check the shapes of the resulting datasets
+print(f"X_train shape: {X_train.shape}")
+print(f"X_test shape: {X_test.shape}")
+print(f"y_train shape: {y_train.shape}")
+print(f"y_test shape: {y_test.shape}")
+
+### Cell 40: Markdown
+## Model training
+
+### Subtask:
+Train a linear regression model to predict customer spending based on the engineered features.
+
+
+### Cell 41: Markdown
+**Reasoning**:
+Train a linear regression model to predict customer spending based on the engineered features.
+
+
+
+### Cell 42: Code
+from sklearn.linear_model import LinearRegression
+
+# # Instantiate a LinearRegression object
+# model = LinearRegression()
+
+# # Fit the model to the training data
+# model.fit(X_train, y_train)
+
+# # Make predictions on the test data
+# y_pred = model.predict(X_test)
+
+### Cell 43: Markdown
+**Reasoning**:
+The error indicates that the `Dt_Customer` column, which is a datetime object, is causing problems with the model training. To fix this, I will drop the `Dt_Customer` column before training.
+
+
+
+### Cell 44: Code
+# Drop the 'Dt_Customer' column from both X_train and X_test
+X_train = X_train.drop('Dt_Customer', axis=1) # X_train every columns
+X_test = X_test.drop('Dt_Customer', axis=1)
+
+# Instantiate a LinearRegression object
+model = LinearRegression()
+
+# Fit the model to the training data
+model.fit(X_train, y_train)
+
+# Make predictions on the test data
+y_pred = model.predict(X_test)
+
+### Cell 45: Markdown
+## Model evaluation
+
+### Subtask:
+Evaluate the performance of the trained linear regression model.
+
+
+### Cell 46: Markdown
+**Reasoning**:
+Evaluate the performance of the trained linear regression model using the calculated metrics.
+
+
+
+### Cell 47: Code
+# from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+
+# # Calculate the Root Mean Squared Error (RMSE)
+# rmse = mean_squared_error(y_test, y_pred, squared=False)
+
+# # Calculate the R-squared
+# r2 = r2_score(y_test, y_pred)
+
+# # Calculate the Mean Absolute Error (MAE)
+# mae = mean_absolute_error(y_test, y_pred)
+
+# # Print the performance metrics
+# print(f"RMSE: {rmse:.2f}")
+# print(f"R-squared: {r2:.2f}")
+# print(f"MAE: {mae:.2f}")
+
+# # Analyze feature importance (if available in the model)
+# if hasattr(model, 'coef_'):
+#   feature_importance = pd.DataFrame({'Feature': X_train.columns, 'Importance': model.coef_})
+#   display(feature_importance.sort_values(by='Importance', ascending=False))
+
+### Cell 48: Markdown
+**Reasoning**:
+Fix the error in the previous code block and calculate the RMSE by manually taking the square root of the mean squared error.
+
+
+
+### Cell 49: Code
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+import numpy as np
+
+# Calculate the Mean Squared Error (MSE)
+mse = mean_squared_error(y_test, y_pred)
+
+# Calculate the Root Mean Squared Error (RMSE)
+rmse = np.sqrt(mse)
+
+# Calculate the R-squared
+r2 = r2_score(y_test, y_pred)
+
+# Calculate the Mean Absolute Error (MAE)
+mae = mean_absolute_error(y_test, y_pred)
+
+# Print the performance metrics
+print(f"RMSE: {rmse:.2f}")
+print(f"R-squared: {r2:.2f}")
+print(f"MAE: {mae:.2f}")
+
+# Analyze feature importance (if available in the model)
+if hasattr(model, 'coef_'):
+  feature_importance = pd.DataFrame({'Feature': X_train.columns, 'Importance': model.coef_})
+  display(feature_importance.sort_values(by='Importance', ascending=False))
+
+### Cell 50: Markdown
+## Model optimization
+
+### Subtask:
+Optimize the linear regression model to improve its performance and reduce overfitting.
+
+
+### Cell 51: Markdown
+**Reasoning**:
+Implement L2 regularization using Ridge regression and tune the hyperparameter alpha using cross-validation to improve model performance and reduce overfitting.
+
+
+
+### Cell 52: Code
+from sklearn.linear_model import Ridge
+from sklearn.model_selection import GridSearchCV
+
+# Define the parameter grid for alpha
+param_grid = {'alpha': [0.001, 0.01, 0.1, 1, 10, 100]}
+
+# Create a Ridge regression model
+ridge_model = Ridge()
+
+# Create a GridSearchCV object to find the best alpha
+grid_search = GridSearchCV(ridge_model, param_grid, cv=5, scoring='neg_mean_squared_error')
+
+# Fit the GridSearchCV object to the training data
+grid_search.fit(X_train, y_train)
+
+# Print the best alpha value
+print(f"Best alpha: {grid_search.best_params_['alpha']}")
+
+# Get the best model
+best_ridge_model = grid_search.best_estimator_
+
+# Make predictions on the test data using the best model
+y_pred_ridge = best_ridge_model.predict(X_test)
+
+### Cell 53: Markdown
+**Reasoning**:
+Evaluate the performance of the optimized Ridge regression model using RMSE, R-squared, and MAE, and compare the results with the previous linear regression model to see if the performance has improved.
+
+
+
+### Cell 54: Code
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+import numpy as np
+
+# Calculate the Mean Squared Error (MSE)
+mse_ridge = mean_squared_error(y_test, y_pred_ridge)
+
+# Calculate the Root Mean Squared Error (RMSE)
+rmse_ridge = np.sqrt(mse_ridge)
+
+# Calculate the R-squared
+r2_ridge = r2_score(y_test, y_pred_ridge)
+
+# Calculate the Mean Absolute Error (MAE)
+mae_ridge = mean_absolute_error(y_test, y_pred_ridge)
+
+# Print the performance metrics
+print(f"Ridge Regression RMSE: {rmse_ridge:.2f}")
+print(f"Ridge Regression R-squared: {r2_ridge:.2f}")
+print(f"Ridge Regression MAE: {mae_ridge:.2f}")
+
+# Compare with the previous linear regression model
+print(f"\nPrevious Linear Regression RMSE: {rmse:.2f}")
+print(f"Previous Linear Regression R-squared: {r2:.2f}")
+print(f"Previous Linear Regression MAE: {mae:.2f}")
+
+### Cell 55: Markdown
+**Reasoning**:
+Analyze the feature importance of the optimized Ridge regression model to understand how regularization has affected the importance of different variables.
+
+
+
+### Cell 56: Code
+# Analyze feature importance
+feature_importance_ridge = pd.DataFrame({'Feature': X_train.columns, 'Importance': best_ridge_model.coef_})
+display(feature_importance_ridge.sort_values(by='Importance', ascending=False))
+
+### Cell 57: Markdown
+## Data clustering
+
+### Subtask:
+Perform K-means clustering on the dataset to identify customer segments based on their demographics and spending behavior.
+
+
+### Cell 58: Markdown
+**Reasoning**:
+Perform K-means clustering on the dataset to identify customer segments based on their demographics and spending behavior as instructed.
+
+
+
+### Cell 59: Code
+# from sklearn.preprocessing import StandardScaler
+# from sklearn.cluster import KMeans
+
+# # Select relevant features for clustering
+# features_for_clustering = ['Income', 'TotalSpending', 'Age', 'Education_Graduation', 'Marital_Status_Married']
+# X_cluster = X_train[features_for_clustering]
+
+# # Standardize the selected features
+# scaler = StandardScaler()
+# X_cluster_scaled = scaler.fit_transform(X_cluster)
+
+# # Instantiate a KMeans object with a suitable number of clusters (e.g., 5)
+# kmeans = KMeans(n_clusters=5, random_state=42)
+
+# # Fit the K-means model to the standardized data
+# kmeans.fit(X_cluster_scaled)
+
+# # Obtain cluster labels for each data point
+# cluster_labels = kmeans.labels_
+
+# # Add the cluster labels as a new column in df_wrangled
+# X_train['cluster_label'] = cluster_labels
+
+# # Analyze the characteristics of each cluster
+# cluster_analysis = X_train.groupby('cluster_label')[features_for_clustering].mean()
+# display(cluster_analysis)
+
+### Cell 60: Markdown
+**Reasoning**:
+The previous code block failed due to a KeyError because 'TotalSpending' was dropped from X_train during the data splitting step. I will modify the code to use the original dataframe (df_wrangled) instead of X_train for clustering.
+
+## KMeans Clustering [1]
+
+
+
+### Cell 61: Code
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+
+# Select relevant features for clustering
+features_for_clustering = ['Income', 'TotalSpending', 'Age', 'Education_Graduation', 'Marital_Status_Married']
+
+# Ensure 'TotalSpending' is available in the dataframe
+X_cluster = df_wrangled[features_for_clustering]
+
+# Standardize the selected features
+scaler = StandardScaler()
+X_cluster_scaled = scaler.fit_transform(X_cluster)
+
+# Instantiate a KMeans object with a suitable number of clusters (e.g., 5)
+kmeans = KMeans(n_clusters=5, random_state=42) # 2, 4, 5
+
+# Fit the K-means model to the standardized data
+kmeans.fit(X_cluster_scaled)
+
+# Obtain cluster labels for each data point
+cluster_labels = kmeans.labels_
+
+# Add the cluster labels as a new column in df_wrangled
+df_wrangled['cluster_label'] = cluster_labels
+
+# Analyze the characteristics of each cluster
+cluster_analysis = df_wrangled.groupby('cluster_label')[features_for_clustering].mean()
+display(cluster_analysis)
+
+### Cell 62: Markdown
+## Data visualization
+
+### Subtask:
+Visualize the results of the analysis, including the relationship between demographics and spending, the performance of the predictive model, and the identified customer segments.
+
+
+### Cell 63: Markdown
+**Reasoning**:
+Visualize the relationship between demographics and spending using scatter plots and box plots.
+
+
+
+### Cell 64: Code
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+sns.scatterplot(x='Income', y='TotalSpending', data=df_wrangled)
+plt.title('Income vs Total Spending')
+
+plt.subplot(1, 2, 2)
+sns.scatterplot(x='Age', y='TotalSpending', data=df_wrangled)
+plt.title('Age vs Total Spending')
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+sns.boxplot(x='Education_Graduation', y='TotalSpending', data=df_wrangled)
+plt.title('Total Spending by Education Level (Graduation)')
+
+plt.subplot(1, 2, 2)
+sns.boxplot(x='Marital_Status_Married', y='TotalSpending', data=df_wrangled)
+plt.title('Total Spending by Marital Status (Married)')
+plt.tight_layout()
+plt.show()
+
+
+### Cell 65: Markdown
+**Reasoning**:
+Visualize the performance of the predictive model using a scatter plot of actual vs predicted 'TotalSpending', a line of best fit, and a residual plot.
+
+
+
+### Cell 66: Code
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+plt.scatter(y_test, y_pred)
+plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'k--', lw=2)  # Line of best fit
+plt.xlabel('Actual Total Spending')
+plt.ylabel('Predicted Total Spending')
+plt.title('Actual vs Predicted Total Spending')
+
+plt.subplot(1, 2, 2)
+residuals = y_test - y_pred
+plt.scatter(y_pred, residuals)
+plt.hlines(y=0, xmin=y_pred.min(), xmax=y_pred.max(), colors='red', linestyles='--')
+plt.xlabel('Predicted Total Spending')
+plt.ylabel('Residuals')
+plt.title('Residual Plot')
+plt.tight_layout()
+plt.show()
+
+### Cell 67: Markdown
+**Reasoning**:
+Visualize the identified customer segments using a scatter plot and bar charts.
+
+
+
+### Cell 68: Code
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+plt.figure(figsize=(10, 6))
+sns.scatterplot(x='Income', y='TotalSpending', hue='cluster_label', data=df_wrangled, palette='viridis')
+plt.title('Customer Segments based on Income and Total Spending')
+plt.show()
+
+cluster_analysis = df_wrangled.groupby('cluster_label')[['Income', 'TotalSpending', 'Age']].mean()
+
+plt.figure(figsize=(15, 6))
+plt.subplot(1, 3, 1)
+cluster_analysis['Income'].plot(kind='bar', color='skyblue')
+plt.title('Average Income per Cluster')
+
+plt.subplot(1, 3, 2)
+cluster_analysis['TotalSpending'].plot(kind='bar', color='orange')
+plt.title('Average Total Spending per Cluster')
+
+plt.subplot(1, 3, 3)
+cluster_analysis['Age'].plot(kind='bar', color='green')
+plt.title('Average Age per Cluster')
+
+plt.tight_layout()
+plt.show()
+
+### Cell 69: Markdown
+## Summary:
+
+### 1. Q&A
+
+* **What factors influence customer purchases, and how do demographics correlate with spending behaviours?**
+    Income, education level, marital status, and age appear to be significant factors influencing customer purchases. Higher income correlates with higher spending, and there might be differences in spending based on education and marital status (as shown in box plots).
+* **Who are the most valuable customers based on age and marital status, and how do they behave?**
+    Based on the cluster analysis, customers within specific clusters (e.g., high income, high total spending) can be considered valuable. The characteristics of these customers can be inferred from the average values of the features within their respective clusters.  For instance, customers in a cluster with high average income and total spending may be the most valuable, and they could be older, married, and have graduate-level education.
+* **What could be the best promotional tactics for attracting future consumers?**
+    Promotional tactics should be targeted to the identified customer segments. For example, targeting individuals with higher income and total spending with premium product offers and loyalty programs could be effective. Other potential tactics include targeted advertising based on age, education, or marital status, offering discounts and deals on specific product categories based on spending behavior, or creating personalized offers based on individual customer preferences (which can be further explored with additional analysis).
+
+### 2. Data Analysis Key Findings
+
+* **Strong Positive Correlation:** `MntWines`, `NumStorePurchases`, `NumCatalogPurchases`, and `Income` showed strong positive correlations, indicating that customers with higher income and those who shop more frequently in stores and catalogs tend to spend more on wine.
+* **Negative Correlation:** `MntWines` showed a negative correlation with `Kidhome`, suggesting that customers with more children might spend less on wine.
+* **Feature Importance:** Certain engineered features, including `MntWines`, `MntMeatProducts`, and `TotalSpending`, have the highest positive impact on the target variable (`TotalSpending`) in the linear regression model.
+* **Cluster Analysis:** K-means clustering identified 5 customer segments with different characteristics, which provides insights into the average income, spending, and age within each cluster.
+
+### 3. Insights or Next Steps
+
+* **Refine Customer Segmentation:** Further explore the customer segments using additional features and potentially more advanced clustering methods. Investigate the characteristics of each segment in more detail, such as their preferred product categories and campaign response rates.
+* **Model Improvement:** Explore alternative model types (e.g., decision trees, random forests) and regularization techniques to improve the prediction of customer spending and reduce overfitting. Consider feature engineering and feature selection to find the most relevant features for predicting spending behavior.
+
+
+### Cell 70: Code
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+
+# Simulate the df_wrangled structure with synthetic data for demonstration
+# Normally, you'd use your actual df_wrangled DataFrame
+import numpy as np
+np.random.seed(42)
+size = 500
+# df_wrangled = pd.DataFrame({
+#     'Income': np.random.normal(60000, 15000, size),
+#     'TotalSpending': np.random.normal(1200, 400, size),
+#     'Age': np.random.randint(25, 70, size),
+#     'Education_Graduation': np.random.randint(0, 2, size),
+#     'Marital_Status_Married': np.random.randint(0, 2, size)
+# })
+
+# Step 1: Select and scale features
+features_for_clustering = ['Income', 'TotalSpending', 'Age', 'Education_Graduation', 'Marital_Status_Married']
+X_cluster = df_wrangled[features_for_clustering]
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X_cluster)
+
+# Step 2: Apply PCA for dimensionality reduction
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X_scaled)
+df_pca = pd.DataFrame(X_pca, columns=['PCA1', 'PCA2'])
+
+# Step 3: Fit KMeans for k=2,4,5 and visualize
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+cluster_results = {}
+
+for idx, k in enumerate([2, 4, 5]):
+    kmeans = KMeans(n_clusters=k, random_state=42)
+    labels = kmeans.fit_predict(X_scaled)
+    df_pca[f'Cluster_{k}'] = labels
+    df_wrangled[f'Cluster_{k}'] = labels
+    cluster_results[k] = df_wrangled.groupby(f'Cluster_{k}')[features_for_clustering].mean()
+
+    sns.scatterplot(
+        x='PCA1', y='PCA2',
+        hue=f'Cluster_{k}',
+        data=df_pca,
+        palette='tab10',
+        ax=axes[idx],
+        legend=False
+    )
+    axes[idx].set_title(f'KMeans Clustering (k={k})')
+    axes[idx].set_xlabel('PCA1')
+    axes[idx].set_ylabel('PCA2')
+
+plt.tight_layout()
+plt.show()
+
+### Cell 71: Markdown
+# Improved Fahim's Work
+
+### Cell 72: Markdown
+
+
+### Cell 73: Code
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+from yellowbrick.cluster import KElbowVisualizer
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+from yellowbrick.cluster import KElbowVisualizer
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import StandardScaler
+
+df = pd.read_csv('marketing_campaign.csv', sep='\t')
+
+# Check for NaNs
+print("Missing values before handling:\n", df.isnull().sum())
+
+# Option 1: Impute missing values with median
+df.fillna(df.median(numeric_only=True), inplace=True)
+
+# Option 2 (Alternative): Drop rows with missing values
+# df.dropna(inplace=True)
+
+# Check again after handling
+print("Missing values after handling:\n", df.isnull().sum())
+
+
+#Create a new variable 'Age_group' to form groups of customers by age
+bins=[30,40,50,60,70,80,90]
+labels = ['20-30','30-40','40-50','50-60','70-80','80+']
+
+#Find out the age of customers
+df['Age'] = 2024-df['Year_Birth']
+#removing outliers from age - clipping the age at 81
+df['Age'] = df['Age'].clip(upper=81)
+df['Age_group'] = pd.cut(df['Age'],bins=bins,labels=labels)
+
+# Create Bins for Income
+df['Income_Bin'] = pd.cut(df['Income'], bins=10)
+avg_spending = df.groupby('Income_Bin')['MntWines'].mean().reset_index()
+
+
+df = df.drop(['Dt_Customer', 'Age_group', 'Income_Bin'],axis=1)
+
+#Converting Categorical variables into numrerical
+LE = LabelEncoder()
+for i in df:
+    if df[i].dtype=='object':
+        df[i] = LE.fit_transform(df[i])
+
+#Scale Values
+SS = StandardScaler()
+scaled_data = pd.DataFrame(SS.fit_transform(df.values),index=df.index,columns=df.columns)
+scaled_data
+
+#Use PCA to reduce dimensions in the dataset
+pca = PCA(n_components=3)
+pca.fit(scaled_data)
+PCA_ds = pd.DataFrame(pca.transform(scaled_data), columns=(["Expenses","Income", "TotSpends"]))
+PCA_ds.describe().T
+
+# Ensure PCA_ds is a NumPy array
+PCA_array = PCA_ds.to_numpy()
+
+# Create figure with two columns
+fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+plt.subplots_adjust(wspace=0.4)
+
+# Plot 1: Elbow Method
+model = KMeans()
+visualizer = KElbowVisualizer(model, k=10, ax=axes[0])
+visualizer.fit(PCA_array)  # Fit the data to the visualizer
+
+# Plot 2: Silhouette Score for Clusters 2-10
+silhouette_scores = []
+cluster_range = range(2, 11)
+
+for i in cluster_range:
+    kmeans = KMeans(n_clusters=i, random_state=42, n_init=10)
+    kmeans.fit(PCA_array)
+    score = silhouette_score(PCA_array, kmeans.labels_)
+    silhouette_scores.append(score)
+
+axes[0].plot(cluster_range, silhouette_scores, marker='o', linestyle='--')
+axes[0].set_title('Distortion Score for KMeans Clustering')
+axes[0].set_xlabel('Number of Clusters')
+axes[0].set_ylabel('Distortion Score')
+axes[0].grid(True)
+
+axes[1].plot(cluster_range, silhouette_scores, marker='o', linestyle='--')
+axes[1].set_title('Silhouette Score to Determine Optimal Clusters')
+axes[1].set_xlabel('Number of Clusters')
+axes[1].set_ylabel('Silhouette Score')
+axes[1].grid(True)
+
+# Show the plots
+plt.show()
+
+
+### Cell 74: Code
+# Histogram for Age
+plt.figure(figsize=(10, 5))
+sns.histplot(df['Age'], bins=20, kde=True, color='blue')
+plt.title('Age Distribution')
+plt.xlabel('Age')
+plt.ylabel('Frequency')
+plt.show()
+
+### Cell 75: Code
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score, silhouette_samples, davies_bouldin_score, calinski_harabasz_score
+from sklearn.decomposition import PCA
+
+# Define cluster numbers to evaluate
+cluster_nums = [2, 4, 5]
+
+# Create a DataFrame to store metrics
+kmeans_metrics = pd.DataFrame(columns=["Clusters", "Silhouette Score", "Davies-Bouldin Score", "Calinski-Harabasz Index"])
+
+# Create a 2-row, 3-column plot
+fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+plt.subplots_adjust(hspace=0.4)
+
+for i, n_clusters in enumerate(cluster_nums):
+    # K-Means Clustering
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+    labels = kmeans.fit_predict(PCA_array)
+    centroids = kmeans.cluster_centers_
+    
+    # Compute Evaluation Metrics
+    sil_score = silhouette_score(PCA_array, labels)
+    db_score = davies_bouldin_score(PCA_array, labels)
+    ch_score = calinski_harabasz_score(PCA_array, labels)
+
+    # Append results to DataFrame using pd.concat()
+    new_row = pd.DataFrame({
+        "Clusters": [n_clusters],
+        "Silhouette Score": [sil_score],
+        "Davies-Bouldin Score": [db_score],
+        "Calinski-Harabasz Index": [ch_score]
+    })
+    
+    kmeans_metrics = pd.concat([kmeans_metrics, new_row], ignore_index=True)
+    
+    # Scatter Plot for K-Means Clustering (Top Row)
+    ax = axes[0, i]
+    ax.scatter(PCA_array[:, 0], PCA_array[:, 1], c=labels, cmap='rainbow', s=30, edgecolor='k')
+    ax.scatter(centroids[:, 0], centroids[:, 1], c='black', s=200, marker='X', label='Centroids')
+    ax.set_title(f"K-Means Results with {n_clusters} Clusters")
+    ax.set_xlabel('Income')
+    ax.set_ylabel('Expenses')
+    ax.legend()
+    ax.grid(True)
+    
+    # Compute Silhouette Score
+    sample_silhouette_values = silhouette_samples(PCA_array, labels)
+
+    # Silhouette Score Plot (Bottom Row)
+    ax = axes[1, i]
+    ax.bar(range(len(PCA_array)), sample_silhouette_values, color='blue')
+    ax.axhline(y=sil_score, color='red', linestyle='--')
+    ax.set_title(f"Silhouette Scores for {n_clusters} Clusters")
+    ax.set_xlabel("Data Point Index")
+    ax.set_ylabel("Silhouette Score")
+
+# Show the plot
+plt.show()
+
+### Cell 76: Code
+# # Barplot for Average Spending per Income Bin
+# plt.figure(figsize=(10, 5))
+# plt.figure(figsize=(4,4))
+# sns.histplot(df['Age_group'])
+# plt.show()
+
+### Cell 77: Code
+sns.barplot(x='Income_Bin', y='MntWines', data=avg_spending, palette='coolwarm')
+plt.xticks(rotation=45)
+plt.title('Average Spending on Wines per Income Bin')
+plt.xlabel('Income Bins')
+plt.ylabel('Average Spending on Wines')
+plt.show()
+
+### Cell 78: Markdown
+# Extra
+
+### Cell 79: Code
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score, silhouette_samples, davies_bouldin_score, calinski_harabasz_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
+# Simulate df_wrangled and PCA_array for the purpose of demonstration
+np.random.seed(42)
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+import pandas as pd
+
+def prepare_pca_features(df: pd.DataFrame, features: list, n_components: int = 2):
+    """
+    Selects specified features, scales them, and applies PCA.
+
+    Parameters:
+    - df: Input DataFrame
+    - features: List of feature names to use for PCA
+    - n_components: Number of PCA components to return
+
+    Returns:
+    - pca_array: NumPy array of reduced dimensions
+    - pca_df: DataFrame of PCA components with labeled columns
+    - scaler: Fitted StandardScaler (optional use)
+    - pca: Fitted PCA object (optional use)
+    """
+    # Step 1: Select relevant features
+    X = df[features].copy()
+
+    # Step 2: Standardize
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    # Step 3: Apply PCA
+    pca = PCA(n_components=n_components)
+    pca_array = pca.fit_transform(X_scaled)
+
+    # Create a labeled DataFrame for PCA result
+    pca_columns = [f"PCA{i+1}" for i in range(n_components)]
+    pca_df = pd.DataFrame(pca_array, columns=pca_columns)
+
+    return pca_array, pca_df, scaler, pca
+
+features = ['Income', 'TotalSpending', 'Age', 'Education_Graduation', 'Marital_Status_Married']
+PCA_array, pca_df, scaler, pca = prepare_pca_features(df_wrangled, features, n_components=2)
+
+# View PCA-transformed values
+display(pca_df.head())
+
+# Create DataFrame to store evaluation metrics
+kmeans_metrics = pd.DataFrame(columns=["Clusters", "Silhouette Score", "Davies-Bouldin Score", "Calinski-Harabasz Index"])
+
+height = 9
+width = 5
+element = 5
+
+# Create 2-row, 3-column plot
+cluster_nums = [2, 4, 5]
+fig, axes = plt.subplots(element, len(cluster_nums),  figsize=(width*element, len(cluster_nums)*height))
+plt.subplots_adjust(hspace=0.5)
+
+
+for i, n_clusters in enumerate(cluster_nums):
+    # Fit KMeans
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+    labels = kmeans.fit_predict(PCA_array)
+    centroids = kmeans.cluster_centers_
+
+    # Compute metrics
+    sil_score = silhouette_score(PCA_array, labels)
+    db_score = davies_bouldin_score(PCA_array, labels)
+    ch_score = calinski_harabasz_score(PCA_array, labels)
+
+    new_row = pd.DataFrame({
+        "Clusters": [n_clusters],
+        "Silhouette Score": [sil_score],
+        "Davies-Bouldin Score": [db_score],
+        "Calinski-Harabasz Index": [ch_score]
+    })
+    kmeans_metrics = pd.concat([kmeans_metrics, new_row], ignore_index=True)
+
+    # Scatter plot
+    ax1 = axes[0, i]
+    ax1.scatter(PCA_array[:, 0], PCA_array[:, 1], c=labels, cmap='rainbow', s=30, edgecolor='k')
+    ax1.scatter(centroids[:, 0], centroids[:, 1], c='black', s=200, marker='X', label='Centroids')
+    ax1.axhline(0, color='gray', linestyle='--')
+    ax1.axvline(0, color='gray', linestyle='--')
+    ax1.text(1.5, 3.5, 'High Income\nHigh Expenses', fontsize=10, color='darkblue')
+    ax1.text(-2, 3.5, 'Low Income\nHigh Expenses', fontsize=10, color='darkgreen')
+    ax1.text(1.5, -4, 'High Income\nLow Expenses', fontsize=10, color='darkred')
+    ax1.text(-2, -4, 'Low Income\nLow Expenses', fontsize=10, color='purple')
+    ax1.set_title(f"K-Means Results with {n_clusters} Clusters")
+    ax1.set_xlabel('PCA1 (Income)')
+    ax1.set_ylabel('PCA2 (Expenses)')
+    ax1.legend()
+    ax1.grid(True)
+
+    # Silhouette plot
+    ax2 = axes[1, i]
+    silhouette_vals = silhouette_samples(PCA_array, labels)
+    ax2.bar(range(len(PCA_array)), silhouette_vals, color='blue')
+    ax2.axhline(y=sil_score, color='red', linestyle='--')
+    ax2.set_title(f"Silhouette Scores for {n_clusters} Clusters")
+    ax2.set_xlabel("Data Point Index")
+    ax2.set_ylabel("Silhouette Score")
+
+    # Average income per cluster
+    ax3 = axes[2, i]
+    cluster_analysis['Income'].plot(kind='bar', color='skyblue', ax=ax3)
+    ax3.set_title('Avg. Income per Cluster')
+
+    # Avg total spending per cluster
+    ax4 = axes[3, i]
+    cluster_analysis['TotalSpending'].plot(kind='bar', color='orange', ax=ax4)
+    ax4.set_title('Avg. Total Spending per Cluster')
+
+    # Avg total spending per cluster
+    ax5 = axes[4, i]
+    cluster_analysis['Age'].plot(kind='bar', color='green', ax=ax5)
+    ax5.set_title('Average Age per Cluster')
+
+plt.show()
+
+    # ax3 = axes[2, i]
+    # df_wrangled['cluster_label'] = labels
+    # cluster_analysis = df_wrangled.groupby('cluster_label')[['Income', 'TotalSpending', 'Age']].mean()
+
+    # # Add final summary plots
+    # ax3 = axes[3, i]
+    # ax_income = fig.add_subplot(gs[2, 0])
+    # cluster_analysis['Income'].plot(kind='bar', color='skyblue', ax=ax_income)
+    # ax_income.set_title('Average Income per Cluster')
+
+    # ax3 = axes[4, i]
+    # ax_spending = fig.add_subplot(gs[2, 1])
+    # cluster_analysis['TotalSpending'].plot(kind='bar', color='orange', ax=ax_spending)
+    # ax_spending.set_title('Average Total Spending per Cluster')
+
+    # ax3 = axes[5, i]
+    # ax_age = fig.add_subplot(gs[2, 2])
+    # cluster_analysis['Age'].plot(kind='bar', color='green', ax=ax_age)
+    # ax_age.set_title('Average Age per Cluster')
+
+
+### Cell 80: Code
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score, silhouette_samples, davies_bouldin_score, calinski_harabasz_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
+# Simulate df_wrangled and PCA_array for the purpose of demonstration
+np.random.seed(42)
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+import pandas as pd
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score, silhouette_samples, davies_bouldin_score, calinski_harabasz_score
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+
+# Reusable function to scale and reduce features using PCA
+def prepare_pca_features(df: pd.DataFrame, features: list, n_components: int = 2):
+    X = df[features].copy()
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    pca = PCA(n_components=n_components)
+    pca_array = pca.fit_transform(X_scaled)
+    pca_df = pd.DataFrame(pca_array, columns=[f"PCA{i+1}" for i in range(n_components)])
+    return pca_array, pca_df, scaler, pca
+
+# Reusable function to run clustering and visualize results
+def run_kmeans_clustering(df, features, cluster_nums=[2, 4, 5], n_components=2):
+    pca_array, pca_df, scaler, pca = prepare_pca_features(df, features, n_components)
+    kmeans_metrics = pd.DataFrame(columns=["Clusters", "Silhouette Score", "Davies-Bouldin Score", "Calinski-Harabasz Index"])
+    
+    height = 9
+    width = 5
+    element = 2 if n_components == 2 else 3
+    fig, axes = plt.subplots(2, len(cluster_nums), figsize=(width * element, height))
+    plt.subplots_adjust(hspace=0.5, wspace=0.3)
+
+    for i, n_clusters in enumerate(cluster_nums):
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+        labels = kmeans.fit_predict(pca_array)
+        centroids = kmeans.cluster_centers_
+
+        sil_score = silhouette_score(pca_array, labels)
+        db_score = davies_bouldin_score(pca_array, labels)
+        ch_score = calinski_harabasz_score(pca_array, labels)
+
+        new_row = pd.DataFrame({
+            "Clusters": [n_clusters],
+            "Silhouette Score": [sil_score],
+            "Davies-Bouldin Score": [db_score],
+            "Calinski-Harabasz Index": [ch_score]
+        })
+        kmeans_metrics = pd.concat([kmeans_metrics, new_row], ignore_index=True)
+
+        # Scatter plot
+        ax1 = axes[0, i]
+        ax1.scatter(pca_array[:, 0], pca_array[:, 1], c=labels, cmap='rainbow', s=30, edgecolor='k')
+        ax1.scatter(centroids[:, 0], centroids[:, 1], c='black', s=200, marker='X', label='Centroids')
+        ax1.axhline(0, color='gray', linestyle='--')
+        ax1.axvline(0, color='gray', linestyle='--')
+        ax1.set_title(f"K-Means Results with {n_clusters} Clusters")
+        ax1.set_xlabel('PCA1')
+        ax1.set_ylabel('PCA2')
+        ax1.legend()
+        ax1.grid(True)
+
+        # Silhouette plot
+        ax2 = axes[1, i]
+        silhouette_vals = silhouette_samples(pca_array, labels)
+        ax2.bar(range(len(pca_array)), silhouette_vals, color='blue')
+        ax2.axhline(y=sil_score, color='red', linestyle='--')
+        ax2.set_title(f"Silhouette Scores for {n_clusters} Clusters")
+        ax2.set_xlabel("Data Point Index")
+        ax2.set_ylabel("Silhouette Score")
+
+    plt.show()
+    return kmeans_metrics
+
+features = ['Income', 'TotalSpending', 'Age', 'Education_Graduation', 'Marital_Status_Married']
+PCA_array, pca_df, scaler, pca = prepare_pca_features(df_wrangled, features, n_components=2)
+
+# View PCA-transformed values
+display(pca_df.head())
+
+# Create DataFrame to store evaluation metrics
+kmeans_metrics = pd.DataFrame(columns=["Clusters", "Silhouette Score", "Davies-Bouldin Score", "Calinski-Harabasz Index"])
+
+height = 9
+width = 5
+element = 5
+
+# Create 2-row, 3-column plot
+cluster_nums = [2, 4, 5]
+fig, axes = plt.subplots(element, len(cluster_nums),  figsize=(width*element, len(cluster_nums)*height))
+plt.subplots_adjust(hspace=0.5)
+
+
+for i, n_clusters in enumerate(cluster_nums):
+    # Fit KMeans
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+    labels = kmeans.fit_predict(PCA_array)
+    centroids = kmeans.cluster_centers_
+
+    # Compute metrics
+    sil_score = silhouette_score(PCA_array, labels)
+    db_score = davies_bouldin_score(PCA_array, labels)
+    ch_score = calinski_harabasz_score(PCA_array, labels)
+
+    new_row = pd.DataFrame({
+        "Clusters": [n_clusters],
+        "Silhouette Score": [sil_score],
+        "Davies-Bouldin Score": [db_score],
+        "Calinski-Harabasz Index": [ch_score]
+    })
+    kmeans_metrics = pd.concat([kmeans_metrics, new_row], ignore_index=True)
+
+    # Scatter plot
+    ax1 = axes[0, i]
+    ax1.scatter(PCA_array[:, 0], PCA_array[:, 1], c=labels, cmap='rainbow', s=30, edgecolor='k')
+    ax1.scatter(centroids[:, 0], centroids[:, 1], c='black', s=200, marker='X', label='Centroids')
+    ax1.axhline(0, color='gray', linestyle='--')
+    ax1.axvline(0, color='gray', linestyle='--')
+    ax1.text(1.5, 3.5, 'High Income\nHigh Expenses', fontsize=10, color='darkblue')
+    ax1.text(-2, 3.5, 'Low Income\nHigh Expenses', fontsize=10, color='darkgreen')
+    ax1.text(1.5, -4, 'High Income\nLow Expenses', fontsize=10, color='darkred')
+    ax1.text(-2, -4, 'Low Income\nLow Expenses', fontsize=10, color='purple')
+    ax1.set_title(f"K-Means Results with {n_clusters} Clusters")
+    ax1.set_xlabel('PCA1 (Income)')
+    ax1.set_ylabel('PCA2 (Expenses)')
+    ax1.legend()
+    ax1.grid(True)
+
+    # Silhouette plot
+    ax2 = axes[1, i]
+    silhouette_vals = silhouette_samples(PCA_array, labels)
+    ax2.bar(range(len(PCA_array)), silhouette_vals, color='blue')
+    ax2.axhline(y=sil_score, color='red', linestyle='--')
+    ax2.set_title(f"Silhouette Scores for {n_clusters} Clusters")
+    ax2.set_xlabel("Data Point Index")
+    ax2.set_ylabel("Silhouette Score")
+
+    # Average income per cluster
+    ax3 = axes[2, i]
+    cluster_analysis['Income'].plot(kind='bar', color='skyblue', ax=ax3)
+    ax3.set_title('Avg. Income per Cluster')
+
+    # Avg total spending per cluster
+    ax4 = axes[3, i]
+    cluster_analysis['TotalSpending'].plot(kind='bar', color='orange', ax=ax4)
+    ax4.set_title('Avg. Total Spending per Cluster')
+
+    # Avg total spending per cluster
+    ax5 = axes[4, i]
+    cluster_analysis['Age'].plot(kind='bar', color='green', ax=ax5)
+    ax5.set_title('Average Age per Cluster')
+
+plt.show()
+
+### Cell 81: Code
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score, silhouette_samples, davies_bouldin_score, calinski_harabasz_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+import seaborn as sns
+import warnings
+warnings.filterwarnings("ignore")
+
+# Simulate df_wrangled for demonstration (replace with your real dataframe)
+np.random.seed(42)
+
+# Select relevant features for clustering
+features_for_clustering = ['Income', 'TotalSpending', 'Age', 'Education_Graduation', 'Marital_Status_Married']
+X_cluster = df_wrangled[features_for_clustering]
+
+# Standardize the selected features
+scaler = StandardScaler()
+X_cluster_scaled = scaler.fit_transform(X_cluster)
+
+# PCA transformation (adding PCA)
+pca = PCA(n_components=2)
+PCA_array = pca.fit_transform(X_cluster_scaled)
+
+# Create DataFrame to store evaluation metrics
+kmeans_metrics = pd.DataFrame(columns=["Clusters", "Silhouette Score", "Davies-Bouldin Score", "Calinski-Harabasz Index"])
+cluster_analysis_dataframes = []
+
+# Plot setup
+cluster_nums = [2, 4, 5]
+height = 4
+width = 5
+element = 5
+fig, axes = plt.subplots(element, len(cluster_nums), figsize=(width * len(cluster_nums), height * element))
+plt.subplots_adjust(hspace=0.5)
+
+for i, n_clusters in enumerate(cluster_nums):
+    # Fit KMeans
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+    labels = kmeans.fit_predict(PCA_array)
+    centroids = kmeans.cluster_centers_
+
+    # Compute metrics
+    sil_score = silhouette_score(PCA_array, labels)
+    db_score = davies_bouldin_score(PCA_array, labels)
+    ch_score = calinski_harabasz_score(PCA_array, labels)
+
+    new_row = pd.DataFrame({
+        "Clusters": [n_clusters],
+        "Silhouette Score": [sil_score],
+        "Davies-Bouldin Score": [db_score],
+        "Calinski-Harabasz Index": [ch_score]
+    })
+    kmeans_metrics = pd.concat([kmeans_metrics, new_row], ignore_index=True)
+
+    # Add cluster label to original df
+    df_wrangled[f'cluster_label_{n_clusters}'] = labels
+
+    # Scatter plot (PCA)
+    ax1 = axes[0, i]
+    ax1.scatter(PCA_array[:, 0], PCA_array[:, 1], c=labels, cmap='rainbow', s=30, edgecolor='k')
+    ax1.scatter(centroids[:, 0], centroids[:, 1], c='black', s=200, marker='X', label='Centroids')
+    ax1.axhline(0, color='gray', linestyle='--')
+    ax1.axvline(0, color='gray', linestyle='--')
+    ax1.set_title(f"K-Means Results with {n_clusters} Clusters")
+    ax1.text(1.5, 3.5, 'High Income\nHigh Expenses', fontsize=10, color='darkblue')
+    ax1.text(-2, 3.5, 'Low Income\nHigh Expenses', fontsize=10, color='darkgreen')
+    ax1.text(1.5, -4.5, 'High Income\nLow Expenses', fontsize=10, color='darkred')
+    ax1.text(-2, -4.5, 'Low Income\nLow Expenses', fontsize=10, color='purple')
+    ax1.set_title(f"K-Means Results with {n_clusters} Clusters")
+    ax1.set_xlabel('PCA1 (Income)')
+    ax1.set_ylabel('PCA2 (Expenses)')
+    ax1.legend()
+    ax1.grid(True)
+
+    # Cluster analysis for each cluster setting
+    cluster_analysis = df_wrangled.groupby(f'cluster_label_{n_clusters}')[features_for_clustering].mean()
+    cluster_analysis_dataframes.append(cluster_analysis)
+    
+    # Average income
+    ax3 = axes[1, i]
+    cluster_analysis['Income'].plot(kind='bar', color='skyblue', ax=ax3)
+    ax3.set_title(f'Average Income (k={n_clusters})')
+
+    # Average spending
+    ax4 = axes[2, i]
+    cluster_analysis['TotalSpending'].plot(kind='bar', color='orange', ax=ax4)
+    ax4.set_title(f'Avg. Total Spending (k={n_clusters})')
+
+    # Average age
+    ax5 = axes[3, i]
+    cluster_analysis['Age'].plot(kind='bar', color='green', ax=ax5)
+    ax5.set_title(f'Average Age (k={n_clusters})')
+
+    # Silhouette Score plot
+    ax2 = axes[4, i]
+    silhouette_vals = silhouette_samples(PCA_array, labels)
+    ax2.bar(range(len(PCA_array)), silhouette_vals, color='blue')
+    ax2.axhline(y=sil_score, color='red', linestyle='--')
+    ax2.set_title(f"Silhouette Scores for {n_clusters} Clusters")
+    ax2.set_xlabel("Data Point Index")
+    ax2.set_ylabel("Silhouette Score")
+
+plt.show()
+
+### Cell 82: Code
+cluster_analysis_dataframes
+
+### Cell 83: Code
+cluster_analysis_dataframes[0]
+
+### Cell 84: Code
+# Extract cluster label name from the index and add it as a column
+merged_dfs = []
+for df in cluster_analysis_dataframes:
+    cluster_label_name = df.index.name  # e.g., 'cluster_label_2'
+    df = df.copy()
+    df[cluster_label_name] = df.index
+    df.reset_index(drop=True, inplace=True)
+    merged_dfs.append(df)
+
+# Combine all into a single DataFrame
+final_df = pd.concat(merged_dfs, ignore_index=True)
+final_df
+
+### Cell 85: Code
+final_df[final_df['cluster_label_5'].notnull()].drop(['cluster_label_4','cluster_label_2'], axis=1)
+
+### Cell 86: Code
+df_wrangled
+
+### Cell 87: Code
+kmeans_metrics
+
+### Cell 88: Code
+# Add the cluster labels as a new column in df_wrangled
+df_wrangled['cluster_label'] = cluster_labels
+
+# Analyze the characteristics of each cluster
+cluster_analysis = df_wrangled.groupby('cluster_label')[features_for_clustering].mean()
+
+### Cell 89: Markdown
+# Label
+
+### Cell 90: Code
+# # Analyze the distribution of 'Income' using a box plot
+# plt.figure(figsize=(8, 4))
+# plt.boxplot(df['Income'])
+# plt.title('Box Plot of Income')
+# plt.ylabel('Income')
+# plt.show()
+
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.read_csv('marketing_campaign.csv', sep='\t')
+
+# Check for NaNs
+print("Missing values before handling:\n", df.isnull().sum())
+
+# Option 1: Impute missing values with median
+df.fillna(df.median(numeric_only=True), inplace=True)
+
+# Option 2 (Alternative): Drop rows with missing values
+# df.dropna(inplace=True)
+
+# Check again after handling
+print("Missing values after handling:\n", df.isnull().sum())
+
+
+#Create a new variable 'Age_group' to form groups of customers by age
+bins=[30,40,50,60,70,80,90]
+labels = ['20-30','30-40','40-50','50-60','70-80','80+']
+
+#Find out the age of customers
+df['Age'] = 2024-df['Year_Birth']
+#removing outliers from age - clipping the age at 81
+df['Age'] = df['Age'].clip(upper=81)
+df['Age_group'] = pd.cut(df['Age'],bins=bins,labels=labels)
+
+
+
+# Identify outliers using the Interquartile Range (IQR) method
+Q1 = df['Income'].quantile(0.25)
+Q3 = df['Income'].quantile(0.75)
+IQR = Q3 - Q1
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+
+# Filter out outliers based on the IQR method
+df_filtered = df[(df['Income'] >= lower_bound) & (df['Income'] <= upper_bound)]
+
+df_wrangled = df_filtered[df_filtered['Age'] <= 81]
+
+
+df_wrangled['TotalSpending'] = df_wrangled['MntWines'] + df_wrangled['MntFruits'] + df_wrangled['MntMeatProducts'] + \
+                               df_wrangled['MntFishProducts'] + df_wrangled['MntSweetProducts'] + df_wrangled['MntGoldProds']
+df_wrangled['NumTotalPurchases'] = df_wrangled['NumWebPurchases'] + df_wrangled['NumCatalogPurchases'] + \
+                                    df_wrangled['NumStorePurchases'] + df_wrangled['NumDealsPurchases']
+df_wrangled['YearsAsCustomer'] = 2025 - df_wrangled['Year_Birth']
+
+# Categorical Variable Transformation (One-Hot Encoding)
+df_wrangled = pd.get_dummies(df_wrangled, columns=['Education', 'Marital_Status','Age_group'], prefix=['Education', 'Marital_Status','Age_group'])
+
+# Convert 'Dt_Customer' to datetime objects
+df_wrangled['Dt_Customer'] = pd.to_datetime(df_wrangled['Dt_Customer'], format='%d-%m-%Y')
+
+# Purchase Frequency (assuming purchases are spread throughout the years as a customer)
+df_wrangled['PurchaseFrequency'] = df_wrangled['NumTotalPurchases'] / df_wrangled['YearsAsCustomer']
+
+# Recency of Purchase (Days since the most recent purchase)
+latest_date = df_wrangled['Dt_Customer'].max()
+df_wrangled['RecencyOfPurchase'] = (latest_date - df_wrangled['Dt_Customer']).dt.days
+
+# Spending Ratio
+df_wrangled['WineSpendingRatio'] = df_wrangled['MntWines'] / df_wrangled['TotalSpending']
+df_wrangled['MeatSpendingRatio'] = df_wrangled['MntMeatProducts'] / df_wrangled['TotalSpending']
+# Add more spending ratios for other product categories if necessary
+
+# Interaction terms
+df_wrangled['TotalSpending_Income'] = df_wrangled['TotalSpending'] * df_wrangled['Income']
+df_wrangled['TotalSpending_Education_Graduation'] = df_wrangled['TotalSpending'] * df_wrangled['Education_Graduation']
+df_wrangled['NumTotalPurchases_Marital_Status_Married'] = df_wrangled['NumTotalPurchases'] * df_wrangled['Marital_Status_Married']
+
+display(df_wrangled.head())
+
+# Define the target variable
+y = df_wrangled['TotalSpending']
+
+# Separate the target variable from the features
+X = df_wrangled.drop('TotalSpending', axis=1)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+
+# Check the shapes of the resulting datasets
+print(f"X_train shape: {X_train.shape}")
+print(f"X_test shape: {X_test.shape}")
+print(f"y_train shape: {y_train.shape}")
+print(f"y_test shape: {y_test.shape}")
+
+# Drop the 'Dt_Customer' column from both X_train and X_test
+X_train = X_train.drop('Dt_Customer', axis=1) # X_train every columns
+X_test = X_test.drop('Dt_Customer', axis=1)
+
+# Instantiate a LinearRegression object
+model = LinearRegression()
+
+# Fit the model to the training data
+model.fit(X_train, y_train)
+
+# Make predictions on the test data
+y_pred = model.predict(X_test)
+
+# Calculate the Mean Squared Error (MSE)
+mse = mean_squared_error(y_test, y_pred)
+
+# Calculate the Root Mean Squared Error (RMSE)
+rmse = np.sqrt(mse)
+
+# Calculate the R-squared
+r2 = r2_score(y_test, y_pred)
+
+# Calculate the Mean Absolute Error (MAE)
+mae = mean_absolute_error(y_test, y_pred)
+
+# Print the performance metrics
+print(f"RMSE: {rmse:.2f}")
+print(f"R-squared: {r2:.2f}")
+print(f"MAE: {mae:.2f}")
+
+# Analyze feature importance (if available in the model)
+if hasattr(model, 'coef_'):
+  feature_importance = pd.DataFrame({'Feature': X_train.columns, 'Importance': model.coef_})
+  display(feature_importance.sort_values(by='Importance', ascending=False))
+
+### Cell 91: Markdown
+# Label Code
+
+### Cell 92: Code
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import matplotlib.pyplot as plt
+
+def load_and_clean_data(filepath: str): # Including impuation of missing values
+    df = pd.read_csv(filepath, sep='\t')
+    print("Missing values before handling:\n", df.isnull().sum())
+    df.fillna(df.median(numeric_only=True), inplace=True)
+    print("Missing values after handling:\n", df.isnull().sum())
+    return df
+
+def filter_outliers(df, column, method='iqr', lower_quantile=0.01, upper_quantile=0.99):
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+    elif method == 'percentile':
+        lower_bound = df[column].quantile(lower_quantile)
+        upper_bound = df[column].quantile(upper_quantile)
+    elif method == 'zscore':
+        mean = df[column].mean()
+        std = df[column].std()
+        lower_bound = mean - 3 * std
+        upper_bound = mean + 3 * std
+    else:
+        raise ValueError("Unsupported method. Choose from: 'iqr', 'percentile', or 'zscore'")
+    
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def preprocess_data(df: pd.DataFrame, outlier_method='iqr'):
+    df['Age'] = 2024 - df['Year_Birth']
+    df['Age'] = df['Age'].clip(upper=81)
+
+    bins = [30, 40, 50, 60, 70, 80, 90]
+    labels = ['20-30', '30-40', '40-50', '50-60', '70-80', '80+']
+    df['Age_group'] = pd.cut(df['Age'], bins=bins, labels=labels)
+
+    # Apply selected outlier filtering method
+    df = filter_outliers(df, column='Income', method=outlier_method)
+    df = df[df['Age'] <= 81]
+
+    return df
+
+def feature_engineering(df: pd.DataFrame):
+    df = df.copy()
+    # Sum of the Data
+    df['TotalSpending'] = df[['MntWines', 'MntFruits', 'MntMeatProducts', 
+                              'MntFishProducts', 'MntSweetProducts', 'MntGoldProds']].sum(axis=1)
+    
+    df['NumTotalPurchases'] = df[['NumWebPurchases', 'NumCatalogPurchases', 
+                                  'NumStorePurchases', 'NumDealsPurchases']].sum(axis=1)
+
+    df['Promotion'] = df[['AcceptedCmp1', 'AcceptedCmp2', 'AcceptedCmp3',  
+                          'AcceptedCmp4', 'AcceptedCmp5', 'Response']].sum(axis=1)
+
+    df['Children'] = df[['Kidhome', 'Teenhome']].sum(axis=1)
+
+    # Feature Engineering
+    df['YearsAsCustomer'] = 2025 - df['Year_Birth']
+    df['Dt_Customer'] = pd.to_datetime(df['Dt_Customer'], format='%d-%m-%Y')
+    latest_date = df['Dt_Customer'].max()
+    df['RecencyOfPurchase'] = (latest_date - df['Dt_Customer']).dt.days
+
+    # Ratios    
+    df['PurchaseFrequency'] = df['NumTotalPurchases'] / df['YearsAsCustomer']
+    ## Ratios of spending on different products
+    df['WineSpendingRatio'] = df['MntWines'] / df['TotalSpending']
+    df['MeatSpendingRatio'] = df['MntMeatProducts'] / df['TotalSpending']
+    df['FruitsSpendingRatio'] = df['MntFruits'] / df['TotalSpending']
+    df['FishSpendingRatio'] = df['MntFishProducts'] / df['TotalSpending']
+    df['SweetSpendingRatio'] = df['MntSweetProducts'] / df['TotalSpending']
+    df['GoldSpendingRatio'] = df['MntGoldProds'] / df['TotalSpending']
+    ## Ratios of purchases from different channels
+    df['WebPurchasesRatio'] = df['NumWebPurchases'] / df['NumTotalPurchases']
+    df['CatalogPurchasesRatio'] = df['NumCatalogPurchases'] / df['NumTotalPurchases']
+    df['StorePurchasesRatio'] = df['NumStorePurchases'] / df['NumTotalPurchases']
+    df['DealsPurchasesRatio'] = df['NumDealsPurchases'] / df['NumTotalPurchases']
+
+    # One-hot encoding
+    labels = ['Education', 'Marital_Status', 'Age_group']
+    df = pd.get_dummies(df, columns=labels, prefix=labels)
+    
+    # Interaction features
+    if 'Education_Graduation' in df.columns and 'Marital_Status_Married' in df.columns:
+        df['TotalSpending_Education_Graduation'] = df['TotalSpending'] * df['Education_Graduation']
+        df['NumTotalPurchases_Marital_Status_Married'] = df['NumTotalPurchases'] * df['Marital_Status_Married']
+    df['TotalSpending_Income'] = df['TotalSpending'] * df['Income']
+    
+    return df
+
+def run_regression(df: pd.DataFrame, target: str, drop_columns: list = None):
+    df_model = df.copy()
+    
+    if drop_columns:
+        df_model = df_model.drop(columns=drop_columns, errors='ignore')
+
+    # Drop rows with NaNs (mostly from ratio features)
+    df_model.dropna(inplace=True)
+
+    X = df_model.drop(target, axis=1)
+    y = df_model[target]
+    
+    # Drop non-numeric columns if any slipped through
+    X = X.select_dtypes(include=[np.number])
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+    
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    
+    # Evaluation metrics
+    mse = mean_squared_error(y_test, y_pred)
+    rmse = np.sqrt(mse)
+    r2 = r2_score(y_test, y_pred)
+    mae = mean_absolute_error(y_test, y_pred)
+    
+    print(f"\nModel Evaluation:")
+    print(f"RMSE: {rmse:.2f}")
+    print(f"R-squared: {r2:.2f}")
+    print(f"MAE: {mae:.2f}")
+    
+    # Feature importance
+    if hasattr(model, 'coef_'):
+        importance = pd.DataFrame({'Feature': X.columns, 'Importance': model.coef_})
+        print("\nTop Features:")
+        display(importance.sort_values(by='Importance', ascending=False).head(15))
+    
+    return model
+
+# === Example Usage ===
+df_raw = load_and_clean_data('marketing_campaign.csv')
+# Default (IQR)
+df_preprocessed = preprocess_data(df_raw) # preprocess_data(df_raw, outlier_method='iqr')
+# Percentile-based (1% to 99%)
+# df_preprocessed = preprocess_data(df_raw, outlier_method='percentile')
+# Z-score-based (3 standard deviations)
+# df_preprocessed = preprocess_data(df_raw, outlier_method='zscore')
+
+df_features = feature_engineering(df_preprocessed)
+
+# Example: drop 'Dt_Customer' and 'ID' from regression
+model = run_regression(df_features, drop_columns=['Dt_Customer', 'ID'], target='TotalSpending')
+model
+
+# def preprocess_data(df: pd.DataFrame):
+#     df['Age'] = 2024 - df['Year_Birth']
+#     df['Age'] = df['Age'].clip(upper=81)
+    
+#     bins = [30, 40, 50, 60, 70, 80, 90]
+#     labels = ['20-30', '30-40', '40-50', '50-60', '70-80', '80+']
+#     df['Age_group'] = pd.cut(df['Age'], bins=bins, labels=labels)
+    
+#     # Outlier filtering using IQR
+#     Q1 = df['Income'].quantile(0.25)
+#     Q3 = df['Income'].quantile(0.75)
+#     IQR = Q3 - Q1
+#     df_filtered = df[(df['Income'] >= Q1 - 1.5 * IQR) & (df['Income'] <= Q3 + 1.5 * IQR)]
+#     df_filtered = df_filtered[df_filtered['Age'] <= 81]
+#     return df_filtered
+
+### Cell 93: Code
+# RQ2 and RQ3 implementation:
+# - RQ2: Valuable customer segmentation using clustering
+# - RQ3: Promotion response modeling using classification and feature importance
+
+import pandas as pd
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_score, silhouette_samples
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+import shap
+import matplotlib.pyplot as plt
+import seaborn as sns
+import warnings
+warnings.filterwarnings("ignore")
+
+# ========== RQ2: SEGMENTING HIGH-VALUE CUSTOMERS ==========
+
+def cluster_high_value_customers(df, features, cluster_nums=[2, 4, 5], n_components=2):
+    X = df[features]
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    pca = PCA(n_components=n_components)
+    PCA_array = pca.fit_transform(X_scaled)
+
+    cluster_analysis_list = []
+
+    for k in cluster_nums:
+        kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+        df[f'cluster_label_{k}'] = kmeans.fit_predict(PCA_array)
+        summary = df.groupby(f'cluster_label_{k}')[features].mean().reset_index()
+        summary['Clusters'] = k
+        cluster_analysis_list.append(summary)
+
+    return df, pd.concat(cluster_analysis_list)
+
+# ========== RQ3: PROMOTION RESPONSE CLASSIFICATION ==========
+
+def classify_promotion_response(df, features, target='Response'):
+    X = df[features].select_dtypes(include=[np.number])
+    y = df[target]
+    X = X.fillna(0)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, random_state=42)
+
+    clf = RandomForestClassifier(n_estimators=100, random_state=42)
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
+
+    report = classification_report(y_test, y_pred, output_dict=True)
+    importance = pd.DataFrame({
+        'Feature': X.columns,
+        'Importance': clf.feature_importances_
+    }).sort_values(by='Importance', ascending=False)
+
+    # SHAP
+    explainer = shap.Explainer(clf, X_train)
+    shap_values = explainer(X_test)
+
+    return clf, report, importance, shap_values
+
+import matplotlib.pyplot as plt
+from sklearn.tree import plot_tree
+
+def visualize_random_forest_tree(clf, feature_names, class_names=['No', 'Yes'], tree_index=0, max_depth=3):
+    """
+    Visualizes a single decision tree from a trained RandomForestClassifier.
+
+    Parameters:
+    - clf: Trained RandomForestClassifier
+    - feature_names: List of feature names used in training
+    - class_names: List of class names (default ['No', 'Yes'])
+    - tree_index: Index of the tree to visualize (default 0)
+    - max_depth: Maximum depth to display in the tree (default 3)
+    """
+    estimator = clf.estimators_[tree_index]
+
+    plt.figure(figsize=(20, 10))
+    plot_tree(
+        estimator,
+        feature_names=feature_names,
+        class_names=class_names,
+        filled=True,
+        rounded=True,
+        max_depth=max_depth,
+        fontsize=10
+    )
+    plt.title(f"Visualization of Tree #{tree_index} (Max Depth: {max_depth})", fontsize=14)
+    plt.show()
+
+
+# ========== PIPELINE EXECUTION ==========
+
+# Features to use
+cluster_features = ['Income', 'TotalSpending', 'Age', 'Education_Graduation', 'Marital_Status_Married']
+promotion_features = cluster_features + ['PurchaseFrequency', 'WebPurchasesRatio', 'CatalogPurchasesRatio',
+                                         'StorePurchasesRatio', 'DealsPurchasesRatio', 'Promotion', 'Children']
+
+# Apply clustering (RQ2)
+df_clustered, cluster_summary = cluster_high_value_customers(df_features.copy(), cluster_features)
+
+# Apply classification and SHAP (RQ3)
+clf_model, promo_report, promo_importance, promo_shap = classify_promotion_response(df_features.copy(), promotion_features)
+visualize_random_forest_tree(clf_model, feature_names=promotion_features, max_depth=3)
+
+
+### Cell 94: Code
+df_clustered
+
+### Cell 95: Code
+cluster_summary
+
+### Cell 96: Code
+df_clustered, cluster_summary
+
+### Cell 97: Code
+clf_model
+
+### Cell 98: Code
+promo_report
+
+### Cell 99: Code
+
+# Convert the nested classification report into a clean DataFrame
+def classification_report_to_df(report_dict):
+    report_df = pd.DataFrame(report_dict).T.reset_index()
+    report_df.rename(columns={'index': 'Class'}, inplace=True)
+    return report_df
+
+# Convert promo_report to table
+promo_report_df = classification_report_to_df(promo_report)
+promo_report_df
+
+### Cell 100: Code
+promo_importance
+
+### Cell 101: Code
+promo_shap
+
+### Cell 102: Code
+clf_model, promo_report, promo_importance, promo_shap
+
+### Cell 103: Code
+df_raw
+
+### Cell 104: Code
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Analyze the correlation between numerical variables
+numerical_features = df_raw.select_dtypes(include=['int64', 'float64']).columns
+correlation_matrix = df_raw[numerical_features].corr()
+
+# Visualize the correlation using a heatmap
+plt.figure(figsize=(15, 10))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f")
+plt.title('Correlation Matrix of Numerical Features')
+plt.show()
+
+# Identify variables that have a strong correlation with spending behavior
+# For example, we can look at the correlation between 'MntWines' and other variables.
+print(correlation_matrix['MntWines'].sort_values(ascending=False))
+
+### Cell 105: Code
+drop_columns_01 = ['MntWines', 'MntFruits', 'MntMeatProducts', 'MntFishProducts', 'MntSweetProducts', 'MntGoldProds']
+drop_columns_02 =  [] #['WineSpendingRatio', 'FruitsSpendingRatio', 'MeatSpendingRatio', 'FishSpendingRatio', 'SweetSpendingRatio', 'GoldSpendingRatio']
+
+drop_columns = drop_columns_01 + drop_columns_02
+model = run_regression(df_features, drop_columns=drop_columns, target='Income')
+model
+
+### Cell 106: Code
+model = run_regression(df_features, target='Income')
+
+### Cell 107: Code
+df = pd.read_csv('marketing_campaign.csv', sep='\t')
+df.iloc[0]
+
+
