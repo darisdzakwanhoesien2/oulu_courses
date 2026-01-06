@@ -260,6 +260,20 @@
   📄 aff_comp_workflow_01.json<br>
   📄 aff_comp_workflow_02.json<br>
   📄 aff_comp_workflow_03.json<br>
+<details><summary>📁 deep_learning/</summary>
+    📄 DL2024_assign1_darisdzakwan_hoesien_2406778.ipynb<br>
+    📄 DL2024_assign2_darisdzakwan_hoesien_2406778.ipynb<br>
+    📄 DL2024_assign3_darisdzakwan_hoesien_2406778.ipynb<br>
+    📄 DL2024_assign4_darisdzakwan_hoesien_2406778.ipynb<br>
+</details>
   📄 pear_01.json<br>
+  📄 project_directory.md<br>
+  📄 registry.json<br>
+<details><summary>📁 streamlit_app/</summary>
+    📄 app.py<br>
+    📄 loaders.py<br>
+    📄 renderers.py<br>
+    📄 utils.py<br>
+</details>
   📄 structure_code.py<br>
   📄 towards_data_mining.csv<br>
