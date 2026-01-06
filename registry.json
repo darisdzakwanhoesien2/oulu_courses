@@ -1,0 +1,39 @@
+{
+  "projects": [
+    {
+      "id": "affective_ex3",
+      "title": "Affective Computing – Exercise 3",
+      "course": "Affective Computing 2025",
+      "type": "notebook",
+      "path": "Affective Computing 2025/Exercise3/exercise3_darisdzakwan_hoesien_2406778.ipynb",
+      "tags": ["emotion", "signal processing", "classification"],
+      "description": "Emotion recognition using physiological signals.",
+      "outputs": [
+        "figures",
+        "tables"
+      ]
+    },
+    {
+      "id": "affective_ex2",
+      "title": "Affective Computing – Exercise 2",
+      "course": "Affective Computing 2025",
+      "type": "notebook",
+      "path": "Affective Computing 2025/exercise 2/exercise2_darisdzakwan_hoesien_2406778.ipynb",
+      "tags": [],
+      "description": "",
+      "outputs": [
+        "figures",
+        "tables"
+      ]
+    },
+    {
+      "id": "tdm_ex7",
+      "title": "Towards Data Mining – Exercise 7",
+      "course": "Towards Data Mining 2025",
+      "type": "notebook",
+      "path": "Towards Data Mining 2025/Exercise 7 materials-20250925/script_NN_E7.R",
+      "tags": ["neural networks", "PCA"],
+      "description": "Neural network and PCA experiments."
+    }
+  ]
+}
