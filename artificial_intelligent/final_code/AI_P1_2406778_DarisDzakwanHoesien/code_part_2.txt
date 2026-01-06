@@ -1,0 +1,1327 @@
+# graphicsDisplay.py
+# graphicsDisplay.py
+# ------------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+from graphicsUtils import *
+import math, time
+from game import Directions
+
+###########################
+#  GRAPHICS DISPLAY CODE  #
+###########################
+
+# Most code by Dan Klein and John Denero written or rewritten for cs188, UC Berkeley.
+# Some code from a Pacman implementation by LiveWires, and used / modified with permission.
+
+DEFAULT_GRID_SIZE = 30.0
+INFO_PANE_HEIGHT = 35
+BACKGROUND_COLOR = formatColor(0,0,0)
+WALL_COLOR = formatColor(0.0/255.0, 51.0/255.0, 255.0/255.0)
+INFO_PANE_COLOR = formatColor(.4,.4,0)
+SCORE_COLOR = formatColor(.9, .9, .9)
+PACMAN_OUTLINE_WIDTH = 2
+PACMAN_CAPTURE_OUTLINE_WIDTH = 4
+
+GHOST_COLORS = []
+GHOST_COLORS.append(formatColor(.9,0,0)) # Red
+GHOST_COLORS.append(formatColor(0,.3,.9)) # Blue
+GHOST_COLORS.append(formatColor(.98,.41,.07)) # Orange
+GHOST_COLORS.append(formatColor(.1,.75,.7)) # Green
+GHOST_COLORS.append(formatColor(1.0,0.6,0.0)) # Yellow
+GHOST_COLORS.append(formatColor(.4,0.13,0.91)) # Purple
+
+TEAM_COLORS = GHOST_COLORS[:2]
+
+GHOST_SHAPE = [
+    ( 0,    0.3 ),
+    ( 0.25, 0.75 ),
+    ( 0.5,  0.3 ),
+    ( 0.75, 0.75 ),
+    ( 0.75, -0.5 ),
+    ( 0.5,  -0.75 ),
+    (-0.5,  -0.75 ),
+    (-0.75, -0.5 ),
+    (-0.75, 0.75 ),
+    (-0.5,  0.3 ),
+    (-0.25, 0.75 )
+  ]
+GHOST_SIZE = 0.65
+SCARED_COLOR = formatColor(1,1,1)
+
+GHOST_VEC_COLORS = [colorToVector(c) for c in GHOST_COLORS]
+
+PACMAN_COLOR = formatColor(255.0/255.0,255.0/255.0,61.0/255)
+PACMAN_SCALE = 0.5
+#pacman_speed = 0.25
+
+# Food
+FOOD_COLOR = formatColor(1,1,1)
+FOOD_SIZE = 0.1
+
+# Laser
+LASER_COLOR = formatColor(1,0,0)
+LASER_SIZE = 0.02
+
+# Capsule graphics
+CAPSULE_COLOR = formatColor(1,1,1)
+CAPSULE_SIZE = 0.25
+
+# Drawing walls
+WALL_RADIUS = 0.15
+
+class InfoPane:
+    def __init__(self, layout, gridSize):
+        self.gridSize = gridSize
+        self.width = (layout.width) * gridSize
+        self.base = (layout.height + 1) * gridSize
+        self.height = INFO_PANE_HEIGHT
+        self.fontSize = 24
+        self.textColor = PACMAN_COLOR
+        self.drawPane()
+
+    def toScreen(self, pos, y = None):
+        """
+          Translates a point relative from the bottom left of the info pane.
+        """
+        if y == None:
+            x,y = pos
+        else:
+            x = pos
+
+        x = self.gridSize + x # Margin
+        y = self.base + y
+        return x,y
+
+    def drawPane(self):
+        self.scoreText = text( self.toScreen(0, 0  ), self.textColor, "SCORE:    0", "Times", self.fontSize, "bold")
+
+    def initializeGhostDistances(self, distances):
+        self.ghostDistanceText = []
+
+        size = 20
+        if self.width < 240:
+            size = 12
+        if self.width < 160:
+            size = 10
+
+        for i, d in enumerate(distances):
+            t = text( self.toScreen(self.width//2 + self.width//8 * i, 0), GHOST_COLORS[i+1], d, "Times", size, "bold")
+            self.ghostDistanceText.append(t)
+
+    def updateScore(self, score):
+        changeText(self.scoreText, "SCORE: % 4d" % score)
+
+    def setTeam(self, isBlue):
+        text = "RED TEAM"
+        if isBlue: text = "BLUE TEAM"
+        self.teamText = text( self.toScreen(300, 0  ), self.textColor, text, "Times", self.fontSize, "bold")
+
+    def updateGhostDistances(self, distances):
+        if len(distances) == 0: return
+        if 'ghostDistanceText' not in dir(self): self.initializeGhostDistances(distances)
+        else:
+            for i, d in enumerate(distances):
+                changeText(self.ghostDistanceText[i], d)
+
+    def drawGhost(self):
+        pass
+
+    def drawPacman(self):
+        pass
+
+    def drawWarning(self):
+        pass
+
+    def clearIcon(self):
+        pass
+
+    def updateMessage(self, message):
+        pass
+
+    def clearMessage(self):
+        pass
+
+
+class PacmanGraphics:
+    def __init__(self, zoom=1.0, frameTime=0.0, capture=False):
+        self.have_window = 0
+        self.currentGhostImages = {}
+        self.pacmanImage = None
+        self.zoom = zoom
+        self.gridSize = DEFAULT_GRID_SIZE * zoom
+        self.capture = capture
+        self.frameTime = frameTime
+
+    def checkNullDisplay(self):
+        return False
+
+    def initialize(self, state, isBlue = False):
+        self.isBlue = isBlue
+        self.startGraphics(state)
+
+        # self.drawDistributions(state)
+        self.distributionImages = None  # Initialized lazily
+        self.drawStaticObjects(state)
+        self.drawAgentObjects(state)
+
+        # Information
+        self.previousState = state
+
+    def startGraphics(self, state):
+        self.layout = state.layout
+        layout = self.layout
+        self.width = layout.width
+        self.height = layout.height
+        self.make_window(self.width, self.height)
+        self.infoPane = InfoPane(layout, self.gridSize)
+        self.currentState = layout
+
+    def drawDistributions(self, state):
+        walls = state.layout.walls
+        dist = []
+        for x in range(walls.width):
+            distx = []
+            dist.append(distx)
+            for y in range(walls.height):
+                ( screen_x, screen_y ) = self.to_screen( (x, y) )
+                block = square( (screen_x, screen_y),
+                                0.5 * self.gridSize,
+                                color = BACKGROUND_COLOR,
+                                filled = 1, behind=2)
+                distx.append(block)
+        self.distributionImages = dist
+
+    def drawStaticObjects(self, state):
+        layout = self.layout
+        self.drawWalls(layout.walls)
+        self.food = self.drawFood(layout.food)
+        self.capsules = self.drawCapsules(layout.capsules)
+        refresh()
+
+    def drawAgentObjects(self, state):
+        self.agentImages = [] # (agentState, image)
+        for index, agent in enumerate(state.agentStates):
+            if agent.isPacman:
+                image = self.drawPacman(agent, index)
+                self.agentImages.append( (agent, image) )
+            else:
+                image = self.drawGhost(agent, index)
+                self.agentImages.append( (agent, image) )
+        refresh()
+
+    def swapImages(self, agentIndex, newState):
+        """
+          Changes an image from a ghost to a pacman or vis versa (for capture)
+        """
+        prevState, prevImage = self.agentImages[agentIndex]
+        for item in prevImage: remove_from_screen(item)
+        if newState.isPacman:
+            image = self.drawPacman(newState, agentIndex)
+            self.agentImages[agentIndex] = (newState, image )
+        else:
+            image = self.drawGhost(newState, agentIndex)
+            self.agentImages[agentIndex] = (newState, image )
+        refresh()
+
+    def update(self, newState):
+        agentIndex = newState._agentMoved
+        agentState = newState.agentStates[agentIndex]
+
+        if self.agentImages[agentIndex][0].isPacman != agentState.isPacman: self.swapImages(agentIndex, agentState)
+        prevState, prevImage = self.agentImages[agentIndex]
+        if agentState.isPacman:
+            self.animatePacman(agentState, prevState, prevImage)
+        else:
+            self.moveGhost(agentState, agentIndex, prevState, prevImage)
+        self.agentImages[agentIndex] = (agentState, prevImage)
+
+        if newState._foodEaten != None:
+            self.removeFood(newState._foodEaten, self.food)
+        if newState._capsuleEaten != None:
+            self.removeCapsule(newState._capsuleEaten, self.capsules)
+        self.infoPane.updateScore(newState.score)
+        if 'ghostDistances' in dir(newState):
+            self.infoPane.updateGhostDistances(newState.ghostDistances)
+
+    def make_window(self, width, height):
+        grid_width = (width-1) * self.gridSize
+        grid_height = (height-1) * self.gridSize
+        screen_width = 2*self.gridSize + grid_width
+        screen_height = 2*self.gridSize + grid_height + INFO_PANE_HEIGHT
+
+        begin_graphics(screen_width,
+                       screen_height,
+                       BACKGROUND_COLOR,
+                       "CS188 Pacman")
+
+    def drawPacman(self, pacman, index):
+        position = self.getPosition(pacman)
+        screen_point = self.to_screen(position)
+        endpoints = self.getEndpoints(self.getDirection(pacman))
+
+        width = PACMAN_OUTLINE_WIDTH
+        outlineColor = PACMAN_COLOR
+        fillColor = PACMAN_COLOR
+
+        if self.capture:
+            outlineColor = TEAM_COLORS[index % 2]
+            fillColor = GHOST_COLORS[index]
+            width = PACMAN_CAPTURE_OUTLINE_WIDTH
+
+        return [circle(screen_point, PACMAN_SCALE * self.gridSize,
+                       fillColor = fillColor, outlineColor = outlineColor,
+                       endpoints = endpoints,
+                       width = width)]
+
+    def getEndpoints(self, direction, position=(0,0)):
+        x, y = position
+        pos = x - int(x) + y - int(y)
+        width = 30 + 80 * math.sin(math.pi* pos)
+
+        delta = width / 2
+        if (direction == 'West'):
+            endpoints = (180+delta, 180-delta)
+        elif (direction == 'North'):
+            endpoints = (90+delta, 90-delta)
+        elif (direction == 'South'):
+            endpoints = (270+delta, 270-delta)
+        else:
+            endpoints = (0+delta, 0-delta)
+        return endpoints
+
+    def movePacman(self, position, direction, image):
+        screenPosition = self.to_screen(position)
+        endpoints = self.getEndpoints( direction, position )
+        r = PACMAN_SCALE * self.gridSize
+        moveCircle(image[0], screenPosition, r, endpoints)
+        refresh()
+
+    def animatePacman(self, pacman, prevPacman, image):
+        if self.frameTime < 0:
+            print('Press any key to step forward, "q" to play')
+            keys = wait_for_keys()
+            if 'q' in keys:
+                self.frameTime = 0.1
+        if self.frameTime > 0.01 or self.frameTime < 0:
+            start = time.time()
+            fx, fy = self.getPosition(prevPacman)
+            px, py = self.getPosition(pacman)
+            frames = 4.0
+            for i in range(1,int(frames) + 1):
+                pos = px*i/frames + fx*(frames-i)/frames, py*i/frames + fy*(frames-i)/frames
+                self.movePacman(pos, self.getDirection(pacman), image)
+                refresh()
+                sleep(abs(self.frameTime) / frames)
+        else:
+            self.movePacman(self.getPosition(pacman), self.getDirection(pacman), image)
+        refresh()
+
+    def getGhostColor(self, ghost, ghostIndex):
+        if ghost.scaredTimer > 0:
+            return SCARED_COLOR
+        else:
+            return GHOST_COLORS[ghostIndex]
+
+    def drawGhost(self, ghost, agentIndex):
+        pos = self.getPosition(ghost)
+        dir = self.getDirection(ghost)
+        (screen_x, screen_y) = (self.to_screen(pos) )
+        coords = []
+        for (x, y) in GHOST_SHAPE:
+            coords.append((x*self.gridSize*GHOST_SIZE + screen_x, y*self.gridSize*GHOST_SIZE + screen_y))
+
+        colour = self.getGhostColor(ghost, agentIndex)
+        body = polygon(coords, colour, filled = 1)
+        WHITE = formatColor(1.0, 1.0, 1.0)
+        BLACK = formatColor(0.0, 0.0, 0.0)
+
+        dx = 0
+        dy = 0
+        if dir == 'North':
+            dy = -0.2
+        if dir == 'South':
+            dy = 0.2
+        if dir == 'East':
+            dx = 0.2
+        if dir == 'West':
+            dx = -0.2
+        leftEye = circle((screen_x+self.gridSize*GHOST_SIZE*(-0.3+dx/1.5), screen_y-self.gridSize*GHOST_SIZE*(0.3-dy/1.5)), self.gridSize*GHOST_SIZE*0.2, WHITE, WHITE)
+        rightEye = circle((screen_x+self.gridSize*GHOST_SIZE*(0.3+dx/1.5), screen_y-self.gridSize*GHOST_SIZE*(0.3-dy/1.5)), self.gridSize*GHOST_SIZE*0.2, WHITE, WHITE)
+        leftPupil = circle((screen_x+self.gridSize*GHOST_SIZE*(-0.3+dx), screen_y-self.gridSize*GHOST_SIZE*(0.3-dy)), self.gridSize*GHOST_SIZE*0.08, BLACK, BLACK)
+        rightPupil = circle((screen_x+self.gridSize*GHOST_SIZE*(0.3+dx), screen_y-self.gridSize*GHOST_SIZE*(0.3-dy)), self.gridSize*GHOST_SIZE*0.08, BLACK, BLACK)
+        ghostImageParts = []
+        ghostImageParts.append(body)
+        ghostImageParts.append(leftEye)
+        ghostImageParts.append(rightEye)
+        ghostImageParts.append(leftPupil)
+        ghostImageParts.append(rightPupil)
+
+        return ghostImageParts
+
+    def moveEyes(self, pos, dir, eyes):
+        (screen_x, screen_y) = (self.to_screen(pos) )
+        dx = 0
+        dy = 0
+        if dir == 'North':
+            dy = -0.2
+        if dir == 'South':
+            dy = 0.2
+        if dir == 'East':
+            dx = 0.2
+        if dir == 'West':
+            dx = -0.2
+        moveCircle(eyes[0],(screen_x+self.gridSize*GHOST_SIZE*(-0.3+dx/1.5), screen_y-self.gridSize*GHOST_SIZE*(0.3-dy/1.5)), self.gridSize*GHOST_SIZE*0.2)
+        moveCircle(eyes[1],(screen_x+self.gridSize*GHOST_SIZE*(0.3+dx/1.5), screen_y-self.gridSize*GHOST_SIZE*(0.3-dy/1.5)), self.gridSize*GHOST_SIZE*0.2)
+        moveCircle(eyes[2],(screen_x+self.gridSize*GHOST_SIZE*(-0.3+dx), screen_y-self.gridSize*GHOST_SIZE*(0.3-dy)), self.gridSize*GHOST_SIZE*0.08)
+        moveCircle(eyes[3],(screen_x+self.gridSize*GHOST_SIZE*(0.3+dx), screen_y-self.gridSize*GHOST_SIZE*(0.3-dy)), self.gridSize*GHOST_SIZE*0.08)
+
+    def moveGhost(self, ghost, ghostIndex, prevGhost, ghostImageParts):
+        old_x, old_y = self.to_screen(self.getPosition(prevGhost))
+        new_x, new_y = self.to_screen(self.getPosition(ghost))
+        delta = new_x - old_x, new_y - old_y
+
+        for ghostImagePart in ghostImageParts:
+            move_by(ghostImagePart, delta)
+        refresh()
+
+        if ghost.scaredTimer > 0:
+            color = SCARED_COLOR
+        else:
+            color = GHOST_COLORS[ghostIndex]
+        edit(ghostImageParts[0], ('fill', color), ('outline', color))
+        self.moveEyes(self.getPosition(ghost), self.getDirection(ghost), ghostImageParts[-4:])
+        refresh()
+
+    def getPosition(self, agentState):
+        if agentState.configuration == None: return (-1000, -1000)
+        return agentState.getPosition()
+
+    def getDirection(self, agentState):
+        if agentState.configuration == None: return Directions.STOP
+        return agentState.configuration.getDirection()
+
+    def finish(self):
+        end_graphics()
+
+    def to_screen(self, point):
+        ( x, y ) = point
+        #y = self.height - y
+        x = (x + 1)*self.gridSize
+        y = (self.height  - y)*self.gridSize
+        return ( x, y )
+
+    # Fixes some TK issue with off-center circles
+    def to_screen2(self, point):
+        ( x, y ) = point
+        #y = self.height - y
+        x = (x + 1)*self.gridSize
+        y = (self.height  - y)*self.gridSize
+        return ( x, y )
+
+    def drawWalls(self, wallMatrix):
+        wallColor = WALL_COLOR
+        for xNum, x in enumerate(wallMatrix):
+            if self.capture and (xNum * 2) < wallMatrix.width: wallColor = TEAM_COLORS[0]
+            if self.capture and (xNum * 2) >= wallMatrix.width: wallColor = TEAM_COLORS[1]
+
+            for yNum, cell in enumerate(x):
+                if cell: # There's a wall here
+                    pos = (xNum, yNum)
+                    screen = self.to_screen(pos)
+                    screen2 = self.to_screen2(pos)
+
+                    # draw each quadrant of the square based on adjacent walls
+                    wIsWall = self.isWall(xNum-1, yNum, wallMatrix)
+                    eIsWall = self.isWall(xNum+1, yNum, wallMatrix)
+                    nIsWall = self.isWall(xNum, yNum+1, wallMatrix)
+                    sIsWall = self.isWall(xNum, yNum-1, wallMatrix)
+                    nwIsWall = self.isWall(xNum-1, yNum+1, wallMatrix)
+                    swIsWall = self.isWall(xNum-1, yNum-1, wallMatrix)
+                    neIsWall = self.isWall(xNum+1, yNum+1, wallMatrix)
+                    seIsWall = self.isWall(xNum+1, yNum-1, wallMatrix)
+
+                    # NE quadrant
+                    if (not nIsWall) and (not eIsWall):
+                        # inner circle
+                        circle(screen2, WALL_RADIUS * self.gridSize, wallColor, wallColor, (0,91), 'arc')
+                    if (nIsWall) and (not eIsWall):
+                        # vertical line
+                        line(add(screen, (self.gridSize*WALL_RADIUS, 0)), add(screen, (self.gridSize*WALL_RADIUS, self.gridSize*(-0.5)-1)), wallColor)
+                    if (not nIsWall) and (eIsWall):
+                        # horizontal line
+                        line(add(screen, (0, self.gridSize*(-1)*WALL_RADIUS)), add(screen, (self.gridSize*0.5+1, self.gridSize*(-1)*WALL_RADIUS)), wallColor)
+                    if (nIsWall) and (eIsWall) and (not neIsWall):
+                        # outer circle
+                        circle(add(screen2, (self.gridSize*2*WALL_RADIUS, self.gridSize*(-2)*WALL_RADIUS)), WALL_RADIUS * self.gridSize-1, wallColor, wallColor, (180,271), 'arc')
+                        line(add(screen, (self.gridSize*2*WALL_RADIUS-1, self.gridSize*(-1)*WALL_RADIUS)), add(screen, (self.gridSize*0.5+1, self.gridSize*(-1)*WALL_RADIUS)), wallColor)
+                        line(add(screen, (self.gridSize*WALL_RADIUS, self.gridSize*(-2)*WALL_RADIUS+1)), add(screen, (self.gridSize*WALL_RADIUS, self.gridSize*(-0.5))), wallColor)
+
+                    # NW quadrant
+                    if (not nIsWall) and (not wIsWall):
+                        # inner circle
+                        circle(screen2, WALL_RADIUS * self.gridSize, wallColor, wallColor, (90,181), 'arc')
+                    if (nIsWall) and (not wIsWall):
+                        # vertical line
+                        line(add(screen, (self.gridSize*(-1)*WALL_RADIUS, 0)), add(screen, (self.gridSize*(-1)*WALL_RADIUS, self.gridSize*(-0.5)-1)), wallColor)
+                    if (not nIsWall) and (wIsWall):
+                        # horizontal line
+                        line(add(screen, (0, self.gridSize*(-1)*WALL_RADIUS)), add(screen, (self.gridSize*(-0.5)-1, self.gridSize*(-1)*WALL_RADIUS)), wallColor)
+                    if (nIsWall) and (wIsWall) and (not nwIsWall):
+                        # outer circle
+                        circle(add(screen2, (self.gridSize*(-2)*WALL_RADIUS, self.gridSize*(-2)*WALL_RADIUS)), WALL_RADIUS * self.gridSize-1, wallColor, wallColor, (270,361), 'arc')
+                        line(add(screen, (self.gridSize*(-2)*WALL_RADIUS+1, self.gridSize*(-1)*WALL_RADIUS)), add(screen, (self.gridSize*(-0.5), self.gridSize*(-1)*WALL_RADIUS)), wallColor)
+                        line(add(screen, (self.gridSize*(-1)*WALL_RADIUS, self.gridSize*(-2)*WALL_RADIUS+1)), add(screen, (self.gridSize*(-1)*WALL_RADIUS, self.gridSize*(-0.5))), wallColor)
+
+                    # SE quadrant
+                    if (not sIsWall) and (not eIsWall):
+                        # inner circle
+                        circle(screen2, WALL_RADIUS * self.gridSize, wallColor, wallColor, (270,361), 'arc')
+                    if (sIsWall) and (not eIsWall):
+                        # vertical line
+                        line(add(screen, (self.gridSize*WALL_RADIUS, 0)), add(screen, (self.gridSize*WALL_RADIUS, self.gridSize*(0.5)+1)), wallColor)
+                    if (not sIsWall) and (eIsWall):
+                        # horizontal line
+                        line(add(screen, (0, self.gridSize*(1)*WALL_RADIUS)), add(screen, (self.gridSize*0.5+1, self.gridSize*(1)*WALL_RADIUS)), wallColor)
+                    if (sIsWall) and (eIsWall) and (not seIsWall):
+                        # outer circle
+                        circle(add(screen2, (self.gridSize*2*WALL_RADIUS, self.gridSize*(2)*WALL_RADIUS)), WALL_RADIUS * self.gridSize-1, wallColor, wallColor, (90,181), 'arc')
+                        line(add(screen, (self.gridSize*2*WALL_RADIUS-1, self.gridSize*(1)*WALL_RADIUS)), add(screen, (self.gridSize*0.5, self.gridSize*(1)*WALL_RADIUS)), wallColor)
+                        line(add(screen, (self.gridSize*WALL_RADIUS, self.gridSize*(2)*WALL_RADIUS-1)), add(screen, (self.gridSize*WALL_RADIUS, self.gridSize*(0.5))), wallColor)
+
+                    # SW quadrant
+                    if (not sIsWall) and (not wIsWall):
+                        # inner circle
+                        circle(screen2, WALL_RADIUS * self.gridSize, wallColor, wallColor, (180,271), 'arc')
+                    if (sIsWall) and (not wIsWall):
+                        # vertical line
+                        line(add(screen, (self.gridSize*(-1)*WALL_RADIUS, 0)), add(screen, (self.gridSize*(-1)*WALL_RADIUS, self.gridSize*(0.5)+1)), wallColor)
+                    if (not sIsWall) and (wIsWall):
+                        # horizontal line
+                        line(add(screen, (0, self.gridSize*(1)*WALL_RADIUS)), add(screen, (self.gridSize*(-0.5)-1, self.gridSize*(1)*WALL_RADIUS)), wallColor)
+                    if (sIsWall) and (wIsWall) and (not swIsWall):
+                        # outer circle
+                        circle(add(screen2, (self.gridSize*(-2)*WALL_RADIUS, self.gridSize*(2)*WALL_RADIUS)), WALL_RADIUS * self.gridSize-1, wallColor, wallColor, (0,91), 'arc')
+                        line(add(screen, (self.gridSize*(-2)*WALL_RADIUS+1, self.gridSize*(1)*WALL_RADIUS)), add(screen, (self.gridSize*(-0.5), self.gridSize*(1)*WALL_RADIUS)), wallColor)
+                        line(add(screen, (self.gridSize*(-1)*WALL_RADIUS, self.gridSize*(2)*WALL_RADIUS-1)), add(screen, (self.gridSize*(-1)*WALL_RADIUS, self.gridSize*(0.5))), wallColor)
+
+    def isWall(self, x, y, walls):
+        if x < 0 or y < 0:
+            return False
+        if x >= walls.width or y >= walls.height:
+            return False
+        return walls[x][y]
+
+    def drawFood(self, foodMatrix ):
+        foodImages = []
+        color = FOOD_COLOR
+        for xNum, x in enumerate(foodMatrix):
+            if self.capture and (xNum * 2) <= foodMatrix.width: color = TEAM_COLORS[0]
+            if self.capture and (xNum * 2) > foodMatrix.width: color = TEAM_COLORS[1]
+            imageRow = []
+            foodImages.append(imageRow)
+            for yNum, cell in enumerate(x):
+                if cell: # There's food here
+                    screen = self.to_screen((xNum, yNum ))
+                    dot = circle( screen,
+                                  FOOD_SIZE * self.gridSize,
+                                  outlineColor = color, fillColor = color,
+                                  width = 1)
+                    imageRow.append(dot)
+                else:
+                    imageRow.append(None)
+        return foodImages
+
+    def drawCapsules(self, capsules ):
+        capsuleImages = {}
+        for capsule in capsules:
+            ( screen_x, screen_y ) = self.to_screen(capsule)
+            dot = circle( (screen_x, screen_y),
+                              CAPSULE_SIZE * self.gridSize,
+                              outlineColor = CAPSULE_COLOR,
+                              fillColor = CAPSULE_COLOR,
+                              width = 1)
+            capsuleImages[capsule] = dot
+        return capsuleImages
+
+    def removeFood(self, cell, foodImages ):
+        x, y = cell
+        remove_from_screen(foodImages[x][y])
+
+    def removeCapsule(self, cell, capsuleImages ):
+        x, y = cell
+        remove_from_screen(capsuleImages[(x, y)])
+
+    def drawExpandedCells(self, cells):
+        """
+        Draws an overlay of expanded grid positions for search agents
+        """
+        n = float(len(cells))
+        baseColor = [1.0, 0.0, 0.0]
+        self.clearExpandedCells()
+        self.expandedCells = []
+        for k, cell in enumerate(cells):
+            screenPos = self.to_screen( cell)
+            cellColor = formatColor(*[(n-k) * c * .5 / n + .25 for c in baseColor])
+            block = square(screenPos,
+                     0.5 * self.gridSize,
+                     color = cellColor,
+                     filled = 1, behind=2)
+            self.expandedCells.append(block)
+            if self.frameTime < 0:
+                refresh()
+
+    def clearExpandedCells(self):
+        if 'expandedCells' in dir(self) and len(self.expandedCells) > 0:
+            for cell in self.expandedCells:
+                remove_from_screen(cell)
+
+
+    def updateDistributions(self, distributions):
+        "Draws an agent's belief distributions"
+        # copy all distributions so we don't change their state
+        distributions = map(lambda x: x.copy(), distributions)
+        if self.distributionImages == None:
+            self.drawDistributions(self.previousState)
+        for x in range(len(self.distributionImages)):
+            for y in range(len(self.distributionImages[0])):
+                image = self.distributionImages[x][y]
+                weights = [dist[ (x,y) ] for dist in distributions]
+
+                if sum(weights) != 0:
+                    pass
+                # Fog of war
+                color = [0.0,0.0,0.0]
+                colors = GHOST_VEC_COLORS[1:] # With Pacman
+                if self.capture: colors = GHOST_VEC_COLORS
+                for weight, gcolor in zip(weights, colors):
+                    color = [min(1.0, c + 0.95 * g * weight ** .3) for c,g in zip(color, gcolor)]
+                changeColor(image, formatColor(*color))
+        refresh()
+
+class FirstPersonPacmanGraphics(PacmanGraphics):
+    def __init__(self, zoom = 1.0, showGhosts = True, capture = False, frameTime=0):
+        PacmanGraphics.__init__(self, zoom, frameTime=frameTime)
+        self.showGhosts = showGhosts
+        self.capture = capture
+
+    def initialize(self, state, isBlue = False):
+
+        self.isBlue = isBlue
+        PacmanGraphics.startGraphics(self, state)
+        # Initialize distribution images
+        walls = state.layout.walls
+        dist = []
+        self.layout = state.layout
+
+        # Draw the rest
+        self.distributionImages = None  # initialize lazily
+        self.drawStaticObjects(state)
+        self.drawAgentObjects(state)
+
+        # Information
+        self.previousState = state
+
+    def lookAhead(self, config, state):
+        if config.getDirection() == 'Stop':
+            return
+        else:
+            pass
+            # Draw relevant ghosts
+            allGhosts = state.getGhostStates()
+            visibleGhosts = state.getVisibleGhosts()
+            for i, ghost in enumerate(allGhosts):
+                if ghost in visibleGhosts:
+                    self.drawGhost(ghost, i)
+                else:
+                    self.currentGhostImages[i] = None
+
+    def getGhostColor(self, ghost, ghostIndex):
+        return GHOST_COLORS[ghostIndex]
+
+    def getPosition(self, ghostState):
+        if not self.showGhosts and not ghostState.isPacman and ghostState.getPosition()[1] > 1:
+            return (-1000, -1000)
+        else:
+            return PacmanGraphics.getPosition(self, ghostState)
+
+def add(x, y):
+    return (x[0] + y[0], x[1] + y[1])
+
+
+# Saving graphical output
+# -----------------------
+# Note: to make an animated gif from this postscript output, try the command:
+# convert -delay 7 -loop 1 -compress lzw -layers optimize frame* out.gif
+# convert is part of imagemagick (freeware)
+
+SAVE_POSTSCRIPT = False
+POSTSCRIPT_OUTPUT_DIR = 'frames'
+FRAME_NUMBER = 0
+import os
+
+def saveFrame():
+    "Saves the current graphical output as a postscript file"
+    global SAVE_POSTSCRIPT, FRAME_NUMBER, POSTSCRIPT_OUTPUT_DIR
+    if not SAVE_POSTSCRIPT: return
+    if not os.path.exists(POSTSCRIPT_OUTPUT_DIR): os.mkdir(POSTSCRIPT_OUTPUT_DIR)
+    name = os.path.join(POSTSCRIPT_OUTPUT_DIR, 'frame_%08d.ps' % FRAME_NUMBER)
+    FRAME_NUMBER += 1
+    writePostscript(name) # writes the current canvas
+
+
+# graphicsUtils.py
+# graphicsUtils.py
+# ----------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+import sys
+import math
+import random
+import string
+import time
+import types
+import tkinter
+import os.path
+
+_Windows = sys.platform == 'win32'  # True if on Win95/98/NT
+
+_root_window = None      # The root window for graphics output
+_canvas = None      # The canvas which holds graphics
+_canvas_xs = None      # Size of canvas object
+_canvas_ys = None
+_canvas_x = None      # Current position on canvas
+_canvas_y = None
+_canvas_col = None      # Current colour (set to black below)
+_canvas_tsize = 12
+_canvas_tserifs = 0
+
+def formatColor(r, g, b):
+    return '#%02x%02x%02x' % (int(r * 255), int(g * 255), int(b * 255))
+
+def colorToVector(color):
+    return list(map(lambda x: int(x, 16) / 256.0, [color[1:3], color[3:5], color[5:7]]))
+
+if _Windows:
+    _canvas_tfonts = ['times new roman', 'lucida console']
+else:
+    _canvas_tfonts = ['times', 'lucidasans-24']
+    pass # XXX need defaults here
+
+def sleep(secs):
+    global _root_window
+    if _root_window == None:
+        time.sleep(secs)
+    else:
+        _root_window.update_idletasks()
+        _root_window.after(int(1000 * secs), _root_window.quit)
+        _root_window.mainloop()
+
+def begin_graphics(width=640, height=480, color=formatColor(0, 0, 0), title=None):
+
+    global _root_window, _canvas, _canvas_x, _canvas_y, _canvas_xs, _canvas_ys, _bg_color
+
+    # Check for duplicate call
+    if _root_window is not None:
+        # Lose the window.
+        _root_window.destroy()
+
+    # Save the canvas size parameters
+    _canvas_xs, _canvas_ys = width - 1, height - 1
+    _canvas_x, _canvas_y = 0, _canvas_ys
+    _bg_color = color
+
+    # Create the root window
+    _root_window = tkinter.Tk()
+    _root_window.protocol('WM_DELETE_WINDOW', _destroy_window)
+    _root_window.title(title or 'Graphics Window')
+    _root_window.resizable(0, 0)
+
+    # Create the canvas object
+    try:
+        _canvas = tkinter.Canvas(_root_window, width=width, height=height)
+        _canvas.pack()
+        draw_background()
+        _canvas.update()
+    except:
+        _root_window = None
+        raise
+
+    # Bind to key-down and key-up events
+    _root_window.bind( "<KeyPress>", _keypress )
+    _root_window.bind( "<KeyRelease>", _keyrelease )
+    _root_window.bind( "<FocusIn>", _clear_keys )
+    _root_window.bind( "<FocusOut>", _clear_keys )
+    _root_window.bind( "<Button-1>", _leftclick )
+    _root_window.bind( "<Button-2>", _rightclick )
+    _root_window.bind( "<Button-3>", _rightclick )
+    _root_window.bind( "<Control-Button-1>", _ctrl_leftclick)
+    _clear_keys()
+
+_leftclick_loc = None
+_rightclick_loc = None
+_ctrl_leftclick_loc = None
+
+def _leftclick(event):
+    global _leftclick_loc
+    _leftclick_loc = (event.x, event.y)
+
+def _rightclick(event):
+    global _rightclick_loc
+    _rightclick_loc = (event.x, event.y)
+
+def _ctrl_leftclick(event):
+    global _ctrl_leftclick_loc
+    _ctrl_leftclick_loc = (event.x, event.y)
+
+def wait_for_click():
+    while True:
+        global _leftclick_loc
+        global _rightclick_loc
+        global _ctrl_leftclick_loc
+        if _leftclick_loc != None:
+            val = _leftclick_loc
+            _leftclick_loc = None
+            return val, 'left'
+        if _rightclick_loc != None:
+            val = _rightclick_loc
+            _rightclick_loc = None
+            return val, 'right'
+        if _ctrl_leftclick_loc != None:
+            val = _ctrl_leftclick_loc
+            _ctrl_leftclick_loc = None
+            return val, 'ctrl_left'
+        sleep(0.05)
+
+def draw_background():
+    corners = [(0,0), (0, _canvas_ys), (_canvas_xs, _canvas_ys), (_canvas_xs, 0)]
+    polygon(corners, _bg_color, fillColor=_bg_color, filled=True, smoothed=False)
+
+def _destroy_window(event=None):
+    sys.exit(0)
+#    global _root_window
+#    _root_window.destroy()
+#    _root_window = None
+    #print("DESTROY")
+
+def end_graphics():
+    global _root_window, _canvas, _mouse_enabled
+    try:
+        try:
+            sleep(1)
+            if _root_window != None:
+                _root_window.destroy()
+        except SystemExit as e:
+            print('Ending graphics raised an exception:', e)
+    finally:
+        _root_window = None
+        _canvas = None
+        _mouse_enabled = 0
+        _clear_keys()
+
+def clear_screen(background=None):
+    global _canvas_x, _canvas_y
+    _canvas.delete('all')
+    draw_background()
+    _canvas_x, _canvas_y = 0, _canvas_ys
+
+def polygon(coords, outlineColor, fillColor=None, filled=1, smoothed=1, behind=0, width=1):
+    c = []
+    for coord in coords:
+        c.append(coord[0])
+        c.append(coord[1])
+    if fillColor == None: fillColor = outlineColor
+    if filled == 0: fillColor = ""
+    poly = _canvas.create_polygon(c, outline=outlineColor, fill=fillColor, smooth=smoothed, width=width)
+    if behind > 0:
+        _canvas.tag_lower(poly, behind) # Higher should be more visible
+    return poly
+
+def square(pos, r, color, filled=1, behind=0):
+    x, y = pos
+    coords = [(x - r, y - r), (x + r, y - r), (x + r, y + r), (x - r, y + r)]
+    return polygon(coords, color, color, filled, 0, behind=behind)
+
+def circle(pos, r, outlineColor, fillColor=None, endpoints=None, style='pieslice', width=2):
+    x, y = pos
+    x0, x1 = x - r - 1, x + r
+    y0, y1 = y - r - 1, y + r
+    if endpoints == None:
+        e = [0, 359]
+    else:
+        e = list(endpoints)
+    while e[0] > e[1]: e[1] = e[1] + 360
+
+    return _canvas.create_arc(x0, y0, x1, y1, outline=outlineColor, fill=fillColor or outlineColor,
+                              extent=e[1] - e[0], start=e[0], style=style, width=width)
+
+def image(pos, file="../../blueghost.gif"):
+    x, y = pos
+    # img = PhotoImage(file=file)
+    return _canvas.create_image(x, y, image = tkinter.PhotoImage(file=file), anchor = tkinter.NW)
+
+
+def refresh():
+    _canvas.update_idletasks()
+
+def moveCircle(id, pos, r, endpoints=None):
+    global _canvas_x, _canvas_y
+
+    x, y = pos
+#    x0, x1 = x - r, x + r + 1
+#    y0, y1 = y - r, y + r + 1
+    x0, x1 = x - r - 1, x + r
+    y0, y1 = y - r - 1, y + r
+    if endpoints == None:
+        e = [0, 359]
+    else:
+        e = list(endpoints)
+    while e[0] > e[1]: e[1] = e[1] + 360
+
+    if os.path.isfile('flag'):
+        edit(id, ('extent', e[1] - e[0]))
+    else:
+        edit(id, ('start', e[0]), ('extent', e[1] - e[0]))
+    move_to(id, x0, y0)
+
+def edit(id, *args):
+    _canvas.itemconfigure(id, **dict(args))
+
+def text(pos, color, contents, font='Helvetica', size=12, style='normal', anchor="nw"):
+    global _canvas_x, _canvas_y
+    x, y = pos
+    font = (font, str(size), style)
+    return _canvas.create_text(x, y, fill=color, text=contents, font=font, anchor=anchor)
+
+def changeText(id, newText, font=None, size=12, style='normal'):
+    _canvas.itemconfigure(id, text=newText)
+    if font != None:
+        _canvas.itemconfigure(id, font=(font, '-%d' % size, style))
+
+def changeColor(id, newColor):
+    _canvas.itemconfigure(id, fill=newColor)
+
+def line(here, there, color=formatColor(0, 0, 0), width=2):
+    x0, y0 = here[0], here[1]
+    x1, y1 = there[0], there[1]
+    return _canvas.create_line(x0, y0, x1, y1, fill=color, width=width)
+
+##############################################################################
+### Keypress handling ########################################################
+##############################################################################
+
+# We bind to key-down and key-up events.
+
+_keysdown = {}
+_keyswaiting = {}
+# This holds an unprocessed key release.  We delay key releases by up to
+# one call to keys_pressed() to get round a problem with auto repeat.
+_got_release = None
+
+def _keypress(event):
+    global _got_release
+    #remap_arrows(event)
+    _keysdown[event.keysym] = 1
+    _keyswaiting[event.keysym] = 1
+#    print(event.char, event.keycode)
+    _got_release = None
+
+def _keyrelease(event):
+    global _got_release
+    #remap_arrows(event)
+    try:
+        del _keysdown[event.keysym]
+    except:
+        pass
+    _got_release = 1
+
+def remap_arrows(event):
+    # TURN ARROW PRESSES INTO LETTERS (SHOULD BE IN KEYBOARD AGENT)
+    if event.char in ['a', 's', 'd', 'w']:
+        return
+    if event.keycode in [37, 101]: # LEFT ARROW (win / x)
+        event.char = 'a'
+    if event.keycode in [38, 99]: # UP ARROW
+        event.char = 'w'
+    if event.keycode in [39, 102]: # RIGHT ARROW
+        event.char = 'd'
+    if event.keycode in [40, 104]: # DOWN ARROW
+        event.char = 's'
+
+def _clear_keys(event=None):
+    global _keysdown, _got_release, _keyswaiting
+    _keysdown = {}
+    _keyswaiting = {}
+    _got_release = None
+
+def keys_pressed(d_o_e=lambda arg: _root_window.dooneevent(arg),
+                 d_w=tkinter._tkinter.DONT_WAIT):
+    d_o_e(d_w)
+    if _got_release:
+        d_o_e(d_w)
+    return _keysdown.keys()
+
+def keys_waiting():
+    global _keyswaiting
+    keys = _keyswaiting.keys()
+    _keyswaiting = {}
+    return keys
+
+# Block for a list of keys...
+
+def wait_for_keys():
+    keys = []
+    while keys == []:
+        keys = keys_pressed()
+        sleep(0.05)
+    return keys
+
+def remove_from_screen(x,
+                       d_o_e=lambda arg: _root_window.dooneevent(arg),
+                       d_w=tkinter._tkinter.DONT_WAIT):
+    _canvas.delete(x)
+    d_o_e(d_w)
+
+def _adjust_coords(coord_list, x, y):
+    for i in range(0, len(coord_list), 2):
+        coord_list[i] = coord_list[i] + x
+        coord_list[i + 1] = coord_list[i + 1] + y
+    return coord_list
+
+def move_to(object, x, y=None,
+            d_o_e=lambda arg: _root_window.dooneevent(arg),
+            d_w=tkinter._tkinter.DONT_WAIT):
+    if y is None:
+        try: x, y = x
+        except: raise  'incomprehensible coordinates'
+
+    horiz = True
+    newCoords = []
+    current_x, current_y = _canvas.coords(object)[0:2] # first point
+    for coord in  _canvas.coords(object):
+        if horiz:
+            inc = x - current_x
+        else:
+            inc = y - current_y
+        horiz = not horiz
+
+        newCoords.append(coord + inc)
+
+    _canvas.coords(object, *newCoords)
+    d_o_e(d_w)
+
+def move_by(object, x, y=None,
+            d_o_e=lambda arg: _root_window.dooneevent(arg),
+            d_w=tkinter._tkinter.DONT_WAIT, lift=False):
+    if y is None:
+        try: x, y = x
+        except: raise Exception('incomprehensible coordinates')
+
+    horiz = True
+    newCoords = []
+    for coord in  _canvas.coords(object):
+        if horiz:
+            inc = x
+        else:
+            inc = y
+        horiz = not horiz
+
+        newCoords.append(coord + inc)
+
+    _canvas.coords(object, *newCoords)
+    d_o_e(d_w)
+    if lift:
+        _canvas.tag_raise(object)
+
+def writePostscript(filename):
+    "Writes the current canvas to a postscript file."
+    psfile = open(filename, 'w')
+    psfile.write(_canvas.postscript(pageanchor='sw',
+                     y='0.c',
+                     x='0.c'))
+    psfile.close()
+
+ghost_shape = [
+    (0, - 0.5),
+    (0.25, - 0.75),
+    (0.5, - 0.5),
+    (0.75, - 0.75),
+    (0.75, 0.5),
+    (0.5, 0.75),
+    (- 0.5, 0.75),
+    (- 0.75, 0.5),
+    (- 0.75, - 0.75),
+    (- 0.5, - 0.5),
+    (- 0.25, - 0.75)
+  ]
+
+if __name__ == '__main__':
+    begin_graphics()
+    clear_screen()
+    ghost_shape = [(x * 10 + 20, y * 10 + 20) for x, y in ghost_shape]
+    g = polygon(ghost_shape, formatColor(1, 1, 1))
+    move_to(g, (50, 50))
+    circle((150, 150), 20, formatColor(0.7, 0.3, 0.0), endpoints=[15, - 15])
+    sleep(2)
+
+
+# keyboardAgents.py
+# keyboardAgents.py
+# -----------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+from game import Agent
+from game import Directions
+import random
+
+class KeyboardAgent(Agent):
+    """
+    An agent controlled by the keyboard.
+    """
+    # NOTE: Arrow keys also work.
+    WEST_KEY  = 'a'
+    EAST_KEY  = 'd'
+    NORTH_KEY = 'w'
+    SOUTH_KEY = 's'
+    STOP_KEY = 'q'
+
+    def __init__( self, index = 0 ):
+
+        self.lastMove = Directions.STOP
+        self.index = index
+        self.keys = []
+
+    def getAction( self, state):
+        from graphicsUtils import keys_waiting
+        from graphicsUtils import keys_pressed
+        keys = list(keys_waiting()) + list(keys_pressed())
+        if keys != []:
+            self.keys = keys
+
+        legal = state.getLegalActions(self.index)
+        move = self.getMove(legal)
+
+        if move == Directions.STOP:
+            # Try to move in the same direction as before
+            if self.lastMove in legal:
+                move = self.lastMove
+
+        if (self.STOP_KEY in self.keys) and Directions.STOP in legal: move = Directions.STOP
+
+        if move not in legal:
+            move = random.choice(legal)
+
+        self.lastMove = move
+        return move
+
+    def getMove(self, legal):
+        move = Directions.STOP
+        if   (self.WEST_KEY in self.keys or 'Left' in self.keys) and Directions.WEST in legal:  move = Directions.WEST
+        if   (self.EAST_KEY in self.keys or 'Right' in self.keys) and Directions.EAST in legal: move = Directions.EAST
+        if   (self.NORTH_KEY in self.keys or 'Up' in self.keys) and Directions.NORTH in legal:   move = Directions.NORTH
+        if   (self.SOUTH_KEY in self.keys or 'Down' in self.keys) and Directions.SOUTH in legal: move = Directions.SOUTH
+        return move
+
+class KeyboardAgent2(KeyboardAgent):
+    """
+    A second agent controlled by the keyboard.
+    """
+    # NOTE: Arrow keys also work.
+    WEST_KEY  = 'j'
+    EAST_KEY  = "l"
+    NORTH_KEY = 'i'
+    SOUTH_KEY = 'k'
+    STOP_KEY = 'u'
+
+    def getMove(self, legal):
+        move = Directions.STOP
+        if   (self.WEST_KEY in self.keys) and Directions.WEST in legal:  move = Directions.WEST
+        if   (self.EAST_KEY in self.keys) and Directions.EAST in legal: move = Directions.EAST
+        if   (self.NORTH_KEY in self.keys) and Directions.NORTH in legal:   move = Directions.NORTH
+        if   (self.SOUTH_KEY in self.keys) and Directions.SOUTH in legal: move = Directions.SOUTH
+        return move
+
+
+# layout.py
+# layout.py
+# ---------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+from util import manhattanDistance
+from game import Grid
+import os
+import random
+from functools import reduce
+
+VISIBILITY_MATRIX_CACHE = {}
+
+class Layout:
+    """
+    A Layout manages the static information about the game board.
+    """
+
+    def __init__(self, layoutText):
+        self.width = len(layoutText[0])
+        self.height= len(layoutText)
+        self.walls = Grid(self.width, self.height, False)
+        self.food = Grid(self.width, self.height, False)
+        self.capsules = []
+        self.agentPositions = []
+        self.numGhosts = 0
+        self.processLayoutText(layoutText)
+        self.layoutText = layoutText
+        self.totalFood = len(self.food.asList())
+        # self.initializeVisibilityMatrix()
+
+    def getNumGhosts(self):
+        return self.numGhosts
+
+    def initializeVisibilityMatrix(self):
+        global VISIBILITY_MATRIX_CACHE
+        if reduce(str.__add__, self.layoutText) not in VISIBILITY_MATRIX_CACHE:
+            from game import Directions
+            vecs = [(-0.5,0), (0.5,0),(0,-0.5),(0,0.5)]
+            dirs = [Directions.NORTH, Directions.SOUTH, Directions.WEST, Directions.EAST]
+            vis = Grid(self.width, self.height, {Directions.NORTH:set(), Directions.SOUTH:set(), Directions.EAST:set(), Directions.WEST:set(), Directions.STOP:set()})
+            for x in range(self.width):
+                for y in range(self.height):
+                    if self.walls[x][y] == False:
+                        for vec, direction in zip(vecs, dirs):
+                            dx, dy = vec
+                            nextx, nexty = x + dx, y + dy
+                            while (nextx + nexty) != int(nextx) + int(nexty) or not self.walls[int(nextx)][int(nexty)] :
+                                vis[x][y][direction].add((nextx, nexty))
+                                nextx, nexty = x + dx, y + dy
+            self.visibility = vis
+            VISIBILITY_MATRIX_CACHE[reduce(str.__add__, self.layoutText)] = vis
+        else:
+            self.visibility = VISIBILITY_MATRIX_CACHE[reduce(str.__add__, self.layoutText)]
+
+    def isWall(self, pos):
+        x, col = pos
+        return self.walls[x][col]
+
+    def getRandomLegalPosition(self):
+        x = random.choice(range(self.width))
+        y = random.choice(range(self.height))
+        while self.isWall( (x, y) ):
+            x = random.choice(range(self.width))
+            y = random.choice(range(self.height))
+        return (x,y)
+
+    def getRandomCorner(self):
+        poses = [(1,1), (1, self.height - 2), (self.width - 2, 1), (self.width - 2, self.height - 2)]
+        return random.choice(poses)
+
+    def getFurthestCorner(self, pacPos):
+        poses = [(1,1), (1, self.height - 2), (self.width - 2, 1), (self.width - 2, self.height - 2)]
+        dist, pos = max([(manhattanDistance(p, pacPos), p) for p in poses])
+        return pos
+
+    def isVisibleFrom(self, ghostPos, pacPos, pacDirection):
+        row, col = [int(x) for x in pacPos]
+        return ghostPos in self.visibility[row][col][pacDirection]
+
+    def __str__(self):
+        return "\n".join(self.layoutText)
+
+    def deepCopy(self):
+        return Layout(self.layoutText[:])
+
+    def processLayoutText(self, layoutText):
+        """
+        Coordinates are flipped from the input format to the (x,y) convention here
+
+        The shape of the maze.  Each character
+        represents a different type of object.
+         % - Wall
+         . - Food
+         o - Capsule
+         G - Ghost
+         P - Pacman
+        Other characters are ignored.
+        """
+        maxY = self.height - 1
+        for y in range(self.height):
+            for x in range(self.width):
+                layoutChar = layoutText[maxY - y][x]
+                self.processLayoutChar(x, y, layoutChar)
+        self.agentPositions.sort()
+        self.agentPositions = [ ( i == 0, pos) for i, pos in self.agentPositions]
+
+    def processLayoutChar(self, x, y, layoutChar):
+        if layoutChar == '%':
+            self.walls[x][y] = True
+        elif layoutChar == '.':
+            self.food[x][y] = True
+        elif layoutChar == 'o':
+            self.capsules.append((x, y))
+        elif layoutChar == 'P':
+            self.agentPositions.append( (0, (x, y) ) )
+        elif layoutChar in ['G']:
+            self.agentPositions.append( (1, (x, y) ) )
+            self.numGhosts += 1
+        elif layoutChar in  ['1', '2', '3', '4']:
+            self.agentPositions.append( (int(layoutChar), (x,y)))
+            self.numGhosts += 1
+def getLayout(name, back = 2):
+    if name.endswith('.lay'):
+        layout = tryToLoad('layouts/' + name)
+        if layout == None: layout = tryToLoad(name)
+    else:
+        layout = tryToLoad('layouts/' + name + '.lay')
+        if layout == None: layout = tryToLoad(name + '.lay')
+    if layout == None and back >= 0:
+        curdir = os.path.abspath('.')
+        os.chdir('..')
+        layout = getLayout(name, back -1)
+        os.chdir(curdir)
+    return layout
+
+def tryToLoad(fullname):
+    if(not os.path.exists(fullname)): return None
+    f = open(fullname)
+    try: return Layout([line.strip() for line in f])
+    finally: f.close()
+
+

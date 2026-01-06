@@ -1,0 +1,1537 @@
+# answers.py
+# answers.py
+# ----------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+def q2():
+    "*** YOUR CODE HERE ***"
+    return "a"
+
+
+
+# autograder.py
+# autograder.py
+# -------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+# imports from python standard library
+import grading
+import importlib
+import optparse
+import os
+import re
+import sys
+import projectParams
+import random
+random.seed(0)
+try: 
+    from pacman import GameState
+except:
+    pass
+
+# register arguments and set default values
+def readCommand(argv):
+    parser = optparse.OptionParser(description = 'Run public tests on student code')
+    parser.set_defaults(generateSolutions=False, edxOutput=False, muteOutput=False, printTestCase=False, noGraphics=False)
+    parser.add_option('--test-directory',
+                      dest = 'testRoot',
+                      default = 'test_cases',
+                      help = 'Root test directory which contains subdirectories corresponding to each question')
+    parser.add_option('--student-code',
+                      dest = 'studentCode',
+                      default = projectParams.STUDENT_CODE_DEFAULT,
+                      help = 'comma separated list of student code files')
+    parser.add_option('--code-directory',
+                    dest = 'codeRoot',
+                    default = "",
+                    help = 'Root directory containing the student and testClass code')
+    parser.add_option('--test-case-code',
+                      dest = 'testCaseCode',
+                      default = projectParams.PROJECT_TEST_CLASSES,
+                      help = 'class containing testClass classes for this project')
+    parser.add_option('--generate-solutions',
+                      dest = 'generateSolutions',
+                      action = 'store_true',
+                      help = 'Write solutions generated to .solution file')
+    parser.add_option('--edx-output',
+                    dest = 'edxOutput',
+                    action = 'store_true',
+                    help = 'Generate edX output files')
+    parser.add_option('--mute',
+                    dest = 'muteOutput',
+                    action = 'store_true',
+                    help = 'Mute output from executing tests')
+    parser.add_option('--print-tests', '-p',
+                    dest = 'printTestCase',
+                    action = 'store_true',
+                    help = 'Print each test case before running them.')
+    parser.add_option('--test', '-t',
+                      dest = 'runTest',
+                      default = None,
+                      help = 'Run one particular test.  Relative to test root.')
+    parser.add_option('--question', '-q',
+                    dest = 'gradeQuestion',
+                    default = None,
+                    help = 'Grade one particular question.')
+    parser.add_option('--no-graphics',
+                    dest = 'noGraphics',
+                    action = 'store_true',
+                    help = 'No graphics display for pacman games.')
+    (options, args) = parser.parse_args(argv)
+    return options
+
+
+# confirm we should author solution files
+def confirmGenerate():
+    print('WARNING: this action will overwrite any solution files.')
+    print('Are you sure you want to proceed? (yes/no)')
+    while True:
+        ans = sys.stdin.readline().strip()
+        if ans == 'yes':
+            break
+        elif ans == 'no':
+            sys.exit(0)
+        else:
+            print('please answer either "yes" or "no"')
+
+
+# TODO: Fix this so that it tracebacks work correctly
+# Looking at source of the traceback module, presuming it works
+# the same as the intepreters, it uses co_filename.  This is,
+# however, a readonly attribute.
+def setModuleName(module, filename):
+    functionType = type(confirmGenerate)
+    classType = type(optparse.Option)
+
+    for i in dir(module):
+        o = getattr(module, i)
+        if hasattr(o, '__file__'): continue
+
+        if type(o) == functionType:
+            setattr(o, '__file__', filename)
+        elif type(o) == classType:
+            setattr(o, '__file__', filename)
+            # TODO: assign member __file__'s?
+        #print(i, type(o))
+
+
+
+
+import py_compile
+
+def loadModuleFile(moduleName, filePath):
+    with open(filePath, 'r') as f:
+        loader = importlib.machinery.SourceFileLoader(moduleName, "%s.py" % moduleName)
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        mod = importlib.util.module_from_spec(spec)
+        loader.exec_module(mod)
+        return mod
+
+
+def readFile(path, root=""):
+    "Read file from disk at specified path and return as string"
+    with open(os.path.join(root, path), 'r') as handle:
+        return handle.read()
+
+
+#######################################################################
+# Error Hint Map
+#######################################################################
+
+# TODO: use these
+ERROR_HINT_MAP = {
+  'q1': {
+    "<type 'exceptions.IndexError'>": """
+      We noticed that your project threw an IndexError on q1.
+      While many things may cause this, it may have been from
+      assuming a certain number of successors from a state space
+      or assuming a certain number of actions available from a given
+      state. Try making your code more general (no hardcoded indices)
+      and submit again!
+    """
+  },
+  'q3': {
+      "<type 'exceptions.AttributeError'>": """
+        We noticed that your project threw an AttributeError on q3.
+        While many things may cause this, it may have been from assuming
+        a certain size or structure to the state space. For example, if you have
+        a line of code assuming that the state is (x, y) and we run your code
+        on a state space with (x, y, z), this error could be thrown. Try
+        making your code more general and submit again!
+
+    """
+  }
+}
+
+import pprint
+
+def splitStrings(d):
+    d2 = dict(d)
+    for k in d:
+        if k[0:2] == "__":
+            del d2[k]
+            continue
+        if d2[k].find("\n") >= 0:
+            d2[k] = d2[k].split("\n")
+    return d2
+
+
+def printTest(testDict, solutionDict):
+    pp = pprint.PrettyPrinter(indent=4)
+    print("Test case:")
+    for line in testDict["__raw_lines__"]:
+        print("   |", line)
+    print("Solution:")
+    for line in solutionDict["__raw_lines__"]:
+        print("   |", line)
+
+
+def runTest(testName, moduleDict, printTestCase=False, display=None):
+    import testParser
+    import testClasses
+    for module in moduleDict:
+        setattr(sys.modules[__name__], module, moduleDict[module])
+
+    testDict = testParser.TestParser(testName + ".test").parse()
+    solutionDict = testParser.TestParser(testName + ".solution").parse()
+    test_out_file = os.path.join('%s.test_output' % testName)
+    testDict['test_out_file'] = test_out_file
+    testClass = getattr(projectTestClasses, testDict['class'])
+
+    questionClass = getattr(testClasses, 'Question')
+    question = questionClass({'max_points': 0}, display)
+    testCase = testClass(question, testDict)
+
+    if printTestCase:
+        printTest(testDict, solutionDict)
+
+    # This is a fragile hack to create a stub grades object
+    grades = grading.Grades(projectParams.PROJECT_NAME, [(None,0)])
+    testCase.execute(grades, moduleDict, solutionDict)
+
+
+# returns all the tests you need to run in order to run question
+def getDepends(testParser, testRoot, question):
+    allDeps = [question]
+    questionDict = testParser.TestParser(os.path.join(testRoot, question, 'CONFIG')).parse()
+    if 'depends' in questionDict:
+        depends = questionDict['depends'].split()
+        for d in depends:
+            # run dependencies first
+            allDeps = getDepends(testParser, testRoot, d) + allDeps
+    return allDeps
+
+# get list of questions to grade
+def getTestSubdirs(testParser, testRoot, questionToGrade):
+    problemDict = testParser.TestParser(os.path.join(testRoot, 'CONFIG')).parse()
+    if questionToGrade != None:
+        questions = getDepends(testParser, testRoot, questionToGrade)
+        if len(questions) > 1:
+            print('Note: due to dependencies, the following tests will be run: %s' % ' '.join(questions))
+        return questions
+    if 'order' in problemDict:
+        return problemDict['order'].split()
+    return sorted(os.listdir(testRoot))
+
+
+# evaluate student code
+def evaluate(generateSolutions, testRoot, moduleDict, exceptionMap=ERROR_HINT_MAP, edxOutput=False, muteOutput=False,
+            printTestCase=False, questionToGrade=None, display=None):
+    # imports of testbench code.  note that the testClasses import must follow
+    # the import of student code due to dependencies
+    import testParser
+    import testClasses
+    for module in moduleDict:
+        setattr(sys.modules[__name__], module, moduleDict[module])
+
+    questions = []
+    questionDicts = {}
+    test_subdirs = getTestSubdirs(testParser, testRoot, questionToGrade)
+    for q in test_subdirs:
+        subdir_path = os.path.join(testRoot, q)
+        if not os.path.isdir(subdir_path) or q[0] == '.':
+            continue
+
+        # create a question object
+        questionDict = testParser.TestParser(os.path.join(subdir_path, 'CONFIG')).parse()
+        questionClass = getattr(testClasses, questionDict['class'])
+        question = questionClass(questionDict, display)
+        questionDicts[q] = questionDict
+
+        # load test cases into question
+        tests = filter(lambda t: re.match('[^#~.].*\.test\Z', t), os.listdir(subdir_path))
+        tests = list(map(lambda t: re.match('(.*)\.test\Z', t).group(1), tests))
+        for t in sorted(tests):
+            test_file = os.path.join(subdir_path, '%s.test' % t)
+            solution_file = os.path.join(subdir_path, '%s.solution' % t)
+            test_out_file = os.path.join(subdir_path, '%s.test_output' % t)
+            testDict = testParser.TestParser(test_file).parse()
+            if testDict.get("disabled", "false").lower() == "true":
+                continue
+            testDict['test_out_file'] = test_out_file
+            testClass = getattr(projectTestClasses, testDict['class'])
+            testCase = testClass(question, testDict)
+            def makefun(testCase, solution_file):
+                if generateSolutions:
+                    # write solution file to disk
+                    return lambda grades: testCase.writeSolution(moduleDict, solution_file)
+                else:
+                    # read in solution dictionary and pass as an argument
+                    testDict = testParser.TestParser(test_file).parse()
+                    solutionDict = testParser.TestParser(solution_file).parse()
+                    if printTestCase:
+                        return lambda grades: printTest(testDict, solutionDict) or testCase.execute(grades, moduleDict, solutionDict)
+                    else:
+                        return lambda grades: testCase.execute(grades, moduleDict, solutionDict)
+            question.addTestCase(testCase, makefun(testCase, solution_file))
+
+        # Note extra function is necessary for scoping reasons
+        def makefun(question):
+            return lambda grades: question.execute(grades)
+        setattr(sys.modules[__name__], q, makefun(question))
+        questions.append((q, question.getMaxPoints()))
+
+    grades = grading.Grades(projectParams.PROJECT_NAME, questions, edxOutput=edxOutput, muteOutput=muteOutput)
+    if questionToGrade == None:
+        for q in questionDicts:
+            for prereq in questionDicts[q].get('depends', '').split():
+                grades.addPrereq(q, prereq)
+
+    grades.grade(sys.modules[__name__], bonusPic = projectParams.BONUS_PIC)
+    return grades.points
+
+
+
+def getDisplay(graphicsByDefault, options=None):
+    graphics = graphicsByDefault
+    if options is not None and options.noGraphics:
+        graphics = False
+    if graphics:
+        try:
+            import graphicsDisplay
+            return graphicsDisplay.PacmanGraphics(1, frameTime=.05)
+        except ImportError:
+            pass
+    import textDisplay
+    return textDisplay.NullGraphics()
+
+
+
+
+if __name__ == '__main__':
+    options = readCommand(sys.argv)
+    if options.generateSolutions:
+        confirmGenerate()
+    codePaths = options.studentCode.split(',')
+    # moduleCodeDict = {}
+    # for cp in codePaths:
+    #     moduleName = re.match('.*?([^/]*)\.py', cp).group(1)
+    #     moduleCodeDict[moduleName] = readFile(cp, root=options.codeRoot)
+    # moduleCodeDict['projectTestClasses'] = readFile(options.testCaseCode, root=options.codeRoot)
+    # moduleDict = loadModuleDict(moduleCodeDict)
+
+    moduleDict = {}
+    for cp in codePaths:
+        moduleName = re.match('.*?([^/]*)\.py', cp).group(1)
+        moduleDict[moduleName] = loadModuleFile(moduleName, os.path.join(options.codeRoot, cp))
+    moduleName = re.match('.*?([^/]*)\.py', options.testCaseCode).group(1)
+    moduleDict['projectTestClasses'] = loadModuleFile(moduleName, os.path.join(options.codeRoot, options.testCaseCode))
+
+
+    if options.runTest != None:
+        runTest(options.runTest, moduleDict, printTestCase=options.printTestCase, display=getDisplay(True, options))
+    else:
+        evaluate(options.generateSolutions, options.testRoot, moduleDict,
+            edxOutput=options.edxOutput, muteOutput=options.muteOutput, printTestCase=options.printTestCase,
+            questionToGrade=options.gradeQuestion, display=getDisplay(options.gradeQuestion!=None, options))
+
+
+# classificationAgents.py
+# classificationAgents.py
+# -----------------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+# pacmanAgents.py
+# ---------------
+# Licensing Information:  You are free to use or extend these projects for 
+# educational purposes provided that (1) you do not distribute or publish 
+# solutions, (2) you retain this notice, and (3) you provide clear 
+# attribution to UC Berkeley, including a link to 
+# http://inst.eecs.berkeley.edu/~cs188/pacman/pacman.html
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero 
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and 
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+from pacman import Directions
+from game import Agent
+
+import random
+import game
+import util
+
+class DummyOptions:
+    def __init__(self):
+        self.data = "pacman"
+        self.training = 25000
+        self.test = 100
+        self.odds = False
+        self.weights = False
+
+
+import perceptron_pacman
+
+class ClassifierAgent(Agent):
+    def __init__(self, trainingData=None, validationData=None, classifierType="perceptron", agentToClone=None, numTraining=4):
+        from dataClassifier import runClassifier, enhancedFeatureExtractorPacman
+        legalLabels = ['Stop', 'West', 'East', 'North', 'South']
+        if(classifierType == "perceptron"):
+            classifier = perceptron_pacman.PerceptronClassifierPacman(legalLabels,numTraining)
+        self.classifier = classifier
+        self.featureFunction = enhancedFeatureExtractorPacman
+        args = {'featureFunction': self.featureFunction,
+                'classifier':self.classifier,
+                'printImage':None,
+                'trainingData':trainingData,
+                'validationData':validationData,
+                'agentToClone': agentToClone,
+        }
+        options = DummyOptions()
+        options.classifier = classifierType
+        runClassifier(args, options)
+    def getAction(self, state):
+        from dataClassifier import runClassifier, enhancedFeatureExtractorPacman
+        features = self.featureFunction(state)
+        
+        action =  self.classifier.classify([features])[0]
+
+        return action
+
+def scoreEvaluation(state):
+    return state.getScore()
+
+
+# classificationMethod.py
+# classificationMethod.py
+# -----------------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+# This file contains the abstract class ClassificationMethod
+
+class ClassificationMethod:
+    """
+    ClassificationMethod is the abstract superclass of
+     - MostFrequentClassifier
+     - NaiveBayesClassifier
+     - PerceptronClassifier
+     - MiraClassifier
+
+    As such, you need not add any code to this file.  You can write
+    all of your implementation code in the files for the individual
+    classification methods listed above.
+    """
+    def __init__(self, legalLabels):
+        """
+        For digits dataset, the set of legal labels will be 0,1,..,9
+        For faces dataset, the set of legal labels will be 0 (non-face) or 1 (face)
+        """
+        self.legalLabels = legalLabels
+
+
+    def train(self, trainingData, trainingLabels, validationData, validationLabels):
+        """
+        This is the supervised training function for the classifier.  Two sets of
+        labeled data are passed in: a large training set and a small validation set.
+
+        Many types of classifiers have a common training structure in practice: using
+        training data for the main supervised training loop but tuning certain parameters
+        with a small held-out validation set.
+
+        For some classifiers (naive Bayes, MIRA), you will need to return the parameters'
+        values after training and tuning step.
+
+        To make the classifier generic to multiple problems, the data should be represented
+        as lists of Counters containing feature descriptions and their counts.
+        """
+        abstract
+
+    def classify(self, data):
+        """
+        This function returns a list of labels, each drawn from the set of legal labels
+        provided to the classifier upon construction.
+
+        To make the classifier generic to multiple problems, the data should be represented
+        as lists of Counters containing feature descriptions and their counts.
+        """
+        abstract
+
+
+# classificationTestClasses.py
+# classificationTestClasses.py
+# ----------------------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+from hashlib import sha1
+import testClasses
+# import json
+
+from collections import defaultdict
+from pprint import PrettyPrinter
+pp = PrettyPrinter()
+
+# from game import Agent
+from pacman import GameState
+# from ghostAgents import RandomGhost, DirectionalGhost
+import random, math, traceback, sys, os
+# import layout, pacman
+# import autograder
+# import grading
+
+import dataClassifier, samples
+from util import Counter
+
+VERBOSE = False
+
+
+
+# Data sets
+# ---------
+
+EVAL_MULTIPLE_CHOICE=True
+
+numTraining = 100
+TEST_SET_SIZE = 100
+DIGIT_DATUM_WIDTH=28
+DIGIT_DATUM_HEIGHT=28
+
+def readDigitData(trainingSize=100, testSize=100):
+    rootdata = 'digitdata/'
+    # loading digits data
+    rawTrainingData = samples.loadDataFile(rootdata + 'trainingimages', trainingSize,DIGIT_DATUM_WIDTH,DIGIT_DATUM_HEIGHT)
+    trainingLabels = samples.loadLabelsFile(rootdata + "traininglabels", trainingSize)
+    rawValidationData = samples.loadDataFile(rootdata + "validationimages", TEST_SET_SIZE,DIGIT_DATUM_WIDTH,DIGIT_DATUM_HEIGHT)
+    validationLabels = samples.loadLabelsFile(rootdata + "validationlabels", TEST_SET_SIZE)
+    rawTestData = samples.loadDataFile("digitdata/testimages", testSize,DIGIT_DATUM_WIDTH,DIGIT_DATUM_HEIGHT)
+    testLabels = samples.loadLabelsFile("digitdata/testlabels", testSize)
+    try:
+        print("Extracting features...")
+        featureFunction = dataClassifier.basicFeatureExtractorDigit
+        trainingData = list(map(featureFunction, rawTrainingData))
+        validationData = list(map(featureFunction, rawValidationData))
+        testData = list(map(featureFunction, rawTestData))
+    except:
+        display("An exception was raised while extracting basic features: \n %s" % getExceptionTraceBack())
+    return (trainingData, trainingLabels, validationData, validationLabels, rawTrainingData, rawValidationData, testData, testLabels, rawTestData)
+
+def readSuicideData(trainingSize=100, testSize=100):
+    rootdata = 'pacmandata'
+    rawTrainingData, trainingLabels = samples.loadPacmanData(rootdata + '/suicide_training.pkl', trainingSize)
+    rawValidationData, validationLabels = samples.loadPacmanData(rootdata + '/suicide_validation.pkl', testSize)
+    rawTestData, testLabels = samples.loadPacmanData(rootdata + '/suicide_test.pkl', testSize)
+    trainingData = []
+    validationData = []
+    testData = []
+    return (trainingData, trainingLabels, validationData, validationLabels, rawTrainingData, rawValidationData, testData, testLabels, rawTestData)
+
+def readContestData(trainingSize=100, testSize=100):
+    rootdata = 'pacmandata'
+    rawTrainingData, trainingLabels = samples.loadPacmanData(rootdata + '/contest_training.pkl', trainingSize)
+    rawValidationData, validationLabels = samples.loadPacmanData(rootdata + '/contest_validation.pkl', testSize)
+    rawTestData, testLabels = samples.loadPacmanData(rootdata + '/contest_test.pkl', testSize)
+    trainingData = []
+    validationData = []
+    testData = []
+    return (trainingData, trainingLabels, validationData, validationLabels, rawTrainingData, rawValidationData, testData, testLabels, rawTestData)
+
+
+smallDigitData = readDigitData(20)
+bigDigitData = readDigitData(1000)
+
+suicideData = readSuicideData(1000)
+contestData = readContestData(1000)
+
+def tinyDataSet():
+    def count(m,b,h):
+        c = Counter();
+        c['m'] = m;
+        c['b'] = b;
+        c['h'] = h;
+        return c;
+
+    training = [count(0,0,0), count(1,0,0), count(1,1,0), count(0,1,1), count(1,0,1), count(1,1,1)]
+    trainingLabels = [1,        1,            1           , 1           ,      -1     ,      -1]
+
+    validation = [count(1,0,1)]
+    validationLabels = [ 1]
+
+    test = [count(1,0,1)]
+    testLabels = [-1]
+
+    return (training,trainingLabels,validation,validationLabels,test,testLabels);
+
+
+def tinyDataSetPeceptronAndMira():
+    def count(m,b,h):
+        c = Counter();
+        c['m'] = m;
+        c['b'] = b;
+        c['h'] = h;
+        return c;
+
+    training = [count(1,0,0), count(1,1,0), count(0,1,1), count(1,0,1), count(1,1,1)]
+    trainingLabels = [1,            1,            1,          -1      ,      -1]
+
+    validation = [count(1,0,1)]
+    validationLabels = [ 1]
+
+    test = [count(1,0,1)]
+    testLabels = [-1]
+
+    return (training,trainingLabels,validation,validationLabels,test,testLabels);
+
+
+DATASETS = {
+    "smallDigitData": lambda: smallDigitData,
+    "bigDigitData": lambda: bigDigitData,
+    "tinyDataSet": tinyDataSet,
+    "tinyDataSetPeceptronAndMira": tinyDataSetPeceptronAndMira,
+    "suicideData": lambda: suicideData,
+    "contestData": lambda: contestData
+}
+
+DATASETS_LEGAL_LABELS = {
+    "smallDigitData": range(10),
+    "bigDigitData": range(10),
+    "tinyDataSet": [-1,1],
+    "tinyDataSetPeceptronAndMira": [-1,1],
+    "suicideData": ["EAST", 'WEST', 'NORTH', 'SOUTH', 'STOP'],
+    "contestData": ["EAST", 'WEST', 'NORTH', 'SOUTH', 'STOP']
+}
+
+
+# Test classes
+# ------------
+
+def getAccuracy(data, classifier, featureFunction=dataClassifier.basicFeatureExtractorDigit):
+    trainingData, trainingLabels, validationData, validationLabels, rawTrainingData, rawValidationData, testData, testLabels, rawTestData = data
+    if featureFunction != dataClassifier.basicFeatureExtractorDigit:
+        trainingData = list(map(featureFunction, rawTrainingData))
+        validationData = list(map(featureFunction, rawValidationData))
+        testData = list(map(featureFunction, rawTestData))
+    classifier.train(trainingData, trainingLabels, validationData, validationLabels)
+    guesses = classifier.classify(testData)
+    correct = [guesses[i] == testLabels[i] for i in range(len(testLabels))].count(True)
+    acc = 100.0 * correct / len(testLabels)
+    serialized_guesses = ", ".join([str(guesses[i]) for i in range(len(testLabels))])
+    print(str(correct), ("correct out of " + str(len(testLabels)) + " (%.1f%%).") % (acc))
+    return acc, serialized_guesses
+
+
+class GradeClassifierTest(testClasses.TestCase):
+
+    def __init__(self, question, testDict):
+        super(GradeClassifierTest, self).__init__(question, testDict)
+
+        self.classifierModule = testDict['classifierModule']
+        self.classifierClass = testDict['classifierClass']
+        self.datasetName = testDict['datasetName']
+
+        self.accuracyScale = int(testDict['accuracyScale'])
+        self.accuracyThresholds = [int(s) for s in testDict.get('accuracyThresholds','').split()]
+        self.exactOutput = testDict['exactOutput'].lower() == "true"
+
+        self.automaticTuning = testDict['automaticTuning'].lower() == "true" if 'automaticTuning' in testDict else None
+        self.max_iterations = int(testDict['max_iterations']) if 'max_iterations' in testDict else None
+        self.featureFunction = testDict['featureFunction'] if 'featureFunction' in testDict else 'basicFeatureExtractorDigit'
+
+        self.maxPoints = len(self.accuracyThresholds) * self.accuracyScale
+
+
+    def grade_classifier(self, moduleDict):
+        featureFunction = getattr(dataClassifier, self.featureFunction)
+        data = DATASETS[self.datasetName]()
+        legalLabels = DATASETS_LEGAL_LABELS[self.datasetName]
+
+        classifierClass = getattr(moduleDict[self.classifierModule], self.classifierClass)
+
+        if self.max_iterations != None:
+            classifier = classifierClass(legalLabels, self.max_iterations)
+        else:
+            classifier = classifierClass(legalLabels)
+
+        if self.automaticTuning != None:
+            classifier.automaticTuning = self.automaticTuning
+
+        return getAccuracy(data, classifier, featureFunction=featureFunction)
+
+
+    def execute(self, grades, moduleDict, solutionDict):
+        accuracy, guesses = self.grade_classifier(moduleDict)
+
+        # Either grade them on the accuracy of their classifer,
+        # or their exact
+        if self.exactOutput:
+            gold_guesses = solutionDict['guesses']
+            if guesses == gold_guesses:
+                totalPoints = self.maxPoints
+            else:
+                self.addMessage("Incorrect classification after training:")
+                self.addMessage("  student classifications: " + guesses)
+                self.addMessage("  correct classifications: " + gold_guesses)
+                totalPoints = 0
+        else:
+            # Grade accuracy
+            totalPoints = 0
+            for threshold in self.accuracyThresholds:
+                if accuracy >= threshold:
+                    totalPoints += self.accuracyScale
+
+            # Print grading schedule
+            self.addMessage("%s correct (%s of %s points)" % (accuracy, totalPoints, self.maxPoints))
+            self.addMessage("    Grading scheme:")
+            self.addMessage("     < %s:  0 points" % (self.accuracyThresholds[0],))
+            for idx, threshold in enumerate(self.accuracyThresholds):
+                self.addMessage("    >= %s:  %s points" % (threshold, (idx+1)*self.accuracyScale))
+
+        return self.testPartial(grades, totalPoints, self.maxPoints)
+
+    def writeSolution(self, moduleDict, filePath):
+        handle = open(filePath, 'w')
+        handle.write('# This is the solution file for %s.\n' % self.path)
+
+        if self.exactOutput:
+            _, guesses = self.grade_classifier(moduleDict)
+            handle.write('guesses: "%s"' % (guesses,))
+
+        handle.close()
+        return True
+
+
+
+
+class MultipleChoiceTest(testClasses.TestCase):
+
+    def __init__(self, question, testDict):
+        super(MultipleChoiceTest, self).__init__(question, testDict)
+        self.ans = testDict['result']
+        self.question = testDict['question']
+
+    def execute(self, grades, moduleDict, solutionDict):
+        studentSolution = str(getattr(moduleDict['answers'], self.question)())
+        encryptedSolution = sha1(studentSolution.strip().lower().encode('utf-8')).hexdigest()
+        if encryptedSolution == self.ans:
+            return self.testPass(grades)
+        else:
+            self.addMessage("Solution is not correct.")
+            self.addMessage("Student solution: %s" % studentSolution)
+            return self.testFail(grades)
+
+    def writeSolution(self, moduleDict, filePath):
+        handle = open(filePath, 'w')
+        handle.write('# This is the solution file for %s.\n' % self.path)
+        handle.write('# File intentionally blank.\n')
+        handle.close()
+        return True
+
+
+
+
+# data.py
+from pathlib import Path
+import json
+
+def extract_content_from_ipynb(file_path: Path) -> str:
+    """
+    Extracts and concatenates the content of a Jupyter Notebook (.ipynb) file.
+    Both code cells and markdown cells are extracted, preserving the order.
+    Each cell is annotated with a header indicating its type.
+    """
+    try:
+        notebook = json.loads(file_path.read_text(encoding="utf-8"))
+        cells = notebook.get("cells", [])
+        content_lines = []
+        for idx, cell in enumerate(cells, start=1):
+            cell_type = cell.get("cell_type", "unknown")
+            if cell_type == "code":
+                content_lines.append(f"### Cell {idx}: Code")
+            elif cell_type == "markdown":
+                content_lines.append(f"### Cell {idx}: Markdown")
+            else:
+                content_lines.append(f"### Cell {idx}: {cell_type}")
+            source = "".join(cell.get("source", []))
+            content_lines.append(source)
+            content_lines.append("")  # blank line after each cell
+        return "\n".join(content_lines)
+    except Exception as e:
+        return f"# Error reading {file_path}: {e}"
+
+def export_code_and_directory_list(root_directory=".", base_code_file="code_part_", list_file="directories.txt", max_lines=5000):
+    """
+    Splits code output into multiple files, each with at most `max_lines` lines.
+    """
+    root = Path(root_directory)
+    files = list(root.rglob("*.py")) + list(root.rglob("*.ipynb"))
+    files.sort(key=lambda p: p.as_posix())
+
+    current_line_count = 0
+    part_index = 1
+    code_out = open(f"{base_code_file}{part_index}.txt", "w", encoding="utf-8")
+
+    with open(list_file, "w", encoding="utf-8") as list_out:
+        for file_path in files:
+            list_out.write(f"{file_path}\n")
+
+            header = f"# {file_path}"
+            if file_path.suffix == ".ipynb":
+                content = extract_content_from_ipynb(file_path)
+            else:
+                try:
+                    content = file_path.read_text(encoding="utf-8")
+                except Exception as e:
+                    content = f"# Error reading {file_path}: {e}"
+
+            full_block = f"{header}\n{content}\n\n"
+            lines_in_block = full_block.count("\n") + 1
+
+            # If the current file would exceed the max line limit, rotate to a new file
+            if current_line_count + lines_in_block > max_lines:
+                code_out.close()
+                part_index += 1
+                code_out = open(f"{base_code_file}{part_index}.txt", "w", encoding="utf-8")
+                current_line_count = 0
+
+            code_out.write(full_block)
+            current_line_count += lines_in_block
+
+    code_out.close()
+
+if __name__ == "__main__":
+    export_code_and_directory_list(
+        root_directory=".", 
+        base_code_file="code_part_",  # Will create files like code_part_1.txt, code_part_2.txt...
+        list_file="directories.txt",
+        max_lines=2000
+    )
+
+
+# dataClassifier.py
+# dataClassifier.py
+# -----------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+# This file contains feature extraction methods and harness
+# code for data classification
+
+import mostFrequent
+import naiveBayes
+import perceptron
+import perceptron_pacman
+import mira
+import samples
+import sys
+import util
+from pacman import GameState
+
+TEST_SET_SIZE = 100
+DIGIT_DATUM_WIDTH=28
+DIGIT_DATUM_HEIGHT=28
+FACE_DATUM_WIDTH=60
+FACE_DATUM_HEIGHT=70
+
+
+def basicFeatureExtractorDigit(datum):
+    """
+    Returns a set of pixel features indicating whether
+    each pixel in the provided datum is white (1) or gray/black (0)
+    """
+    a = datum.getPixels()
+
+    features = util.Counter()
+    for x in range(DIGIT_DATUM_WIDTH):
+        for y in range(DIGIT_DATUM_HEIGHT):
+            if datum.getPixel(x, y) > 0:
+                features[(x,y)] = 1
+            else:
+                features[(x,y)] = 0
+    return features
+
+def basicFeatureExtractorFace(datum):
+    """
+    Returns a set of pixel features indicating whether
+    each pixel in the provided datum is an edge (1) or no edge (0)
+    """
+    a = datum.getPixels()
+
+    features = util.Counter()
+    for x in range(FACE_DATUM_WIDTH):
+        for y in range(FACE_DATUM_HEIGHT):
+            if datum.getPixel(x, y) > 0:
+                features[(x,y)] = 1
+            else:
+                features[(x,y)] = 0
+    return features
+
+def enhancedFeatureExtractorDigit(datum):
+    """
+    Your feature extraction playground.
+
+    You should return a util.Counter() of features
+    for this datum (datum is of type samples.Datum).
+
+    ## DESCRIBE YOUR ENHANCED FEATURES HERE...
+
+    ##
+    """
+    features = basicFeatureExtractorDigit(datum) # Start with basic pixel features
+
+    # Example features which is always 0 and 1
+    #features["zeroExample"] = 0
+    #features["oneExample"] = 1
+
+    "*** YOUR CODE HERE ***"
+    """
+    Extracts advanced features to improve digit classification.
+    Your enhanced feature extractor. We add:
+      - Black region counting (DFS)
+      - Loops in white space (BFS)
+      - Horizontal and vertical symmetry (binned)
+      - Quadrant density (binned)
+
+    All features are stored as binary indicators (0/1).
+    """
+    width, height = DIGIT_DATUM_WIDTH, DIGIT_DATUM_HEIGHT
+
+    # Convert image to a 2D boolean array: True = black pixel, False = white pixel
+    image = [[(datum.getPixel(x, y) > 0) for x in range(width)] for y in range(height)]
+
+    #--------------------------------------------------------------------------
+    # 2) Count Black Regions (DFS)
+    #--------------------------------------------------------------------------
+    def count_black_regions(img):
+        visited = set()
+        regions = 0
+
+        def dfs(sx, sy):
+            stack = [(sx, sy)]
+            while stack:
+                cx, cy = stack.pop()
+                if (cx, cy) in visited:
+                    continue
+                visited.add((cx, cy))
+                # Explore neighbors
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = cx + dx, cy + dy
+                    if 0 <= nx < width and 0 <= ny < height:
+                        if img[ny][nx] and (nx, ny) not in visited:
+                            stack.append((nx, ny))
+
+        for row in range(height):
+            for col in range(width):
+                if img[row][col] and (col, row) not in visited:
+                    regions += 1
+                    dfs(col, row)
+
+        return regions
+
+    num_black_regions = count_black_regions(image)
+    # Binning black region counts (0, 1, 2+)
+    features["black_regions_0"] = 1 if num_black_regions == 0 else 0
+    features["black_regions_1"] = 1 if num_black_regions == 1 else 0
+    features["black_regions_2+"] = 1 if num_black_regions >= 2 else 0
+
+    #--------------------------------------------------------------------------
+    # 3) Count Loops in White Space (BFS)
+    #--------------------------------------------------------------------------
+    def count_white_loops(img):
+        visited = set()
+        loops = 0
+
+        def bfs(sx, sy):
+            queue = [(sx, sy)]
+            inside = True
+            while queue:
+                cx, cy = queue.pop(0)
+                if (cx, cy) in visited:
+                    continue
+                visited.add((cx, cy))
+                # Check neighbors
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = cx + dx, cy + dy
+                    # If we go out of bounds, it means the white region touches the edge
+                    if not (0 <= nx < width and 0 <= ny < height):
+                        inside = False
+                    else:
+                        # If it's still white and not visited
+                        if not img[ny][nx] and (nx, ny) not in visited:
+                            queue.append((nx, ny))
+            return inside
+
+        for row in range(height):
+            for col in range(width):
+                # If it's white and not visited, do BFS
+                if not img[row][col] and (col, row) not in visited:
+                    if bfs(col, row):
+                        loops += 1
+        return loops
+
+    num_loops = count_white_loops(image)
+    # Binning loops (0, 1, 2+)
+    features["loops_0"] = 1 if num_loops == 0 else 0
+    features["loops_1"] = 1 if num_loops == 1 else 0
+    features["loops_2+"] = 1 if num_loops >= 2 else 0
+
+    #--------------------------------------------------------------------------
+    # 4) Symmetry (Horizontal & Vertical)
+    #--------------------------------------------------------------------------
+    # We'll count how many pixels match their opposite side.
+    # Then convert that match count to a fraction of total possible matches,
+    # and bin the fraction.
+
+    def check_symmetry(img):
+        # horizontal_sym: compare row y with row (height-y-1)
+        horizontal_matches = 0
+        total_pairs_h = 0
+        for y in range(height // 2):
+            for x in range(width):
+                total_pairs_h += 1
+                if img[y][x] == img[height - 1 - y][x]:
+                    horizontal_matches += 1
+
+        # vertical_sym: compare col x with col (width-x-1)
+        vertical_matches = 0
+        total_pairs_v = 0
+        for y in range(height):
+            for x in range(width // 2):
+                total_pairs_v += 1
+                if img[y][x] == img[y][width - 1 - x]:
+                    vertical_matches += 1
+
+        # Fraction of matched pixels
+        h_frac = float(horizontal_matches) / total_pairs_h if total_pairs_h > 0 else 0
+        v_frac = float(vertical_matches) / total_pairs_v if total_pairs_v > 0 else 0
+        return h_frac, v_frac
+
+    h_sym_frac, v_sym_frac = check_symmetry(image)
+
+    # Example binning for horizontal symmetry (low, medium, high)
+    features["hSym_low"] = 1 if h_sym_frac < 0.3 else 0
+    features["hSym_med"] = 1 if 0.3 <= h_sym_frac < 0.7 else 0
+    features["hSym_high"] = 1 if h_sym_frac >= 0.7 else 0
+
+    # Example binning for vertical symmetry
+    features["vSym_low"] = 1 if v_sym_frac < 0.3 else 0
+    features["vSym_med"] = 1 if 0.3 <= v_sym_frac < 0.7 else 0
+    features["vSym_high"] = 1 if v_sym_frac >= 0.7 else 0
+
+    #--------------------------------------------------------------------------
+    # 5) Quadrant Density (Binned)
+    #--------------------------------------------------------------------------
+    half_w = width // 2
+    half_h = height // 2
+
+    top_left = sum(image[r][c] for r in range(0, half_h) for c in range(0, half_w))
+    top_right = sum(image[r][c] for r in range(0, half_h) for c in range(half_w, width))
+    bottom_left = sum(image[r][c] for r in range(half_h, height) for c in range(0, half_w))
+    bottom_right = sum(image[r][c] for r in range(half_h, height) for c in range(half_w, width))
+
+    # We'll convert each count to a fraction of its quadrant area
+    quad_area = half_w * half_h  # area of each quadrant
+    tl_frac = float(top_left) / quad_area if quad_area > 0 else 0
+    tr_frac = float(top_right) / quad_area if quad_area > 0 else 0
+    bl_frac = float(bottom_left) / quad_area if quad_area > 0 else 0
+    br_frac = float(bottom_right) / quad_area if quad_area > 0 else 0
+
+    # Example 3-bin approach for each quadrant
+    def bin_quadrant_density(fraction, prefix):
+        features[prefix+"_low"] = 1 if fraction < 0.3 else 0
+        features[prefix+"_med"] = 1 if 0.3 <= fraction < 0.6 else 0
+        features[prefix+"_high"] = 1 if fraction >= 0.6 else 0
+
+    bin_quadrant_density(tl_frac, "Q_tl")
+    bin_quadrant_density(tr_frac, "Q_tr")
+    bin_quadrant_density(bl_frac, "Q_bl")
+    bin_quadrant_density(br_frac, "Q_br")
+
+    return features
+
+def basicFeatureExtractorPacman(state):
+    """
+    A basic feature extraction function.
+
+    You should return a util.Counter() of features
+    for each (state, action) pair along with a list of the legal actions
+
+    ##
+    """
+    features = util.Counter()
+    for action in state.getLegalActions():
+        successor = state.generateSuccessor(0, action)
+        foodCount = successor.getFood().count()
+        featureCounter = util.Counter()
+        featureCounter['foodCount'] = foodCount
+        features[action] = featureCounter
+    return features, state.getLegalActions()
+
+def enhancedFeatureExtractorPacman(state):
+    """
+    Your feature extraction playground.
+
+    You should return a util.Counter() of features
+    for each (state, action) pair along with a list of the legal actions
+
+    ##
+    """
+
+    features = basicFeatureExtractorPacman(state)[0]
+    for action in state.getLegalActions():
+        features[action] = util.Counter(features[action], **enhancedPacmanFeatures(state, action))
+    return features, state.getLegalActions()
+
+def enhancedPacmanFeatures(state, action):
+    """
+    For each state, this function is called with each legal action.
+    It should return a counter with { <feature name> : <feature value>, ... }
+    """
+    features = util.Counter()
+
+    # Example to get the successor state like in the first project
+    #successor = state.generateSuccessor(0, action)
+
+    "*** YOUR CODE HERE ***"
+    """
+    Extracts strategic features for better decision-making in Pacman.
+    """
+    features = util.Counter()
+    successor = state.generateSuccessor(0, action)
+    pacman_pos = successor.getPacmanPosition()
+    food = successor.getFood()
+    ghosts = successor.getGhostPositions()
+    capsules = successor.getCapsules()
+    walls = successor.getWalls()
+
+    # 1. Distance to the Closest Food
+    def closest_food(pacman_pos, food, walls):
+        from util import manhattanDistance, Queue
+
+        queue = Queue()
+        queue.push((pacman_pos, 0))
+        visited = set()
+
+        while not queue.isEmpty():
+            position, dist = queue.pop()
+            if position in visited:
+                continue
+            visited.add(position)
+
+            x, y = position
+            if food[x][y]:  # If food is found
+                return dist
+
+            # Explore neighbors
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                next_pos = (x + dx, y + dy)
+                if not walls[next_pos[0]][next_pos[1]]:  # If not a wall
+                    queue.push((next_pos, dist + 1))
+
+        return 0  # No food found
+
+    features["closest_food"] = closest_food(pacman_pos, food, walls)
+
+    # 2. Distance to the Closest Ghost
+    def closest_ghost(pacman_pos, ghosts):
+        if not ghosts:
+            return 0
+        return min(util.manhattanDistance(pacman_pos, ghost) for ghost in ghosts)
+
+    features["closest_ghost"] = closest_ghost(pacman_pos, ghosts)
+
+    # 3. Number of Remaining Capsules
+    features["capsule_count"] = len(capsules)
+
+    # 4. Number of Scared Ghosts
+    scared_ghosts = sum(1 for ghost_state in successor.getGhostStates() if ghost_state.scaredTimer > 0)
+    features["scared_ghosts"] = scared_ghosts
+
+    # 5. Wall Proximity (number of walls near Pacman)
+    def wall_proximity(pacman_pos, walls):
+        x, y = pacman_pos
+        return sum(walls[x + dx][y + dy] for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)])
+
+    features["wall_proximity"] = wall_proximity(pacman_pos, walls)
+
+    # Normalize food distance to avoid high numbers
+    if features["closest_food"] > 0:
+        features["closest_food"] = 1.0 / features["closest_food"]
+
+    # Normalize ghost distance (penalize being close to ghosts)
+    if features["closest_ghost"] > 0:
+        features["closest_ghost"] = -1.0 / features["closest_ghost"]
+
+    return features
+
+def contestFeatureExtractorDigit(datum):
+    """
+    Specify features to use for the minicontest
+    """
+    features =  basicFeatureExtractorDigit(datum)
+    return features
+
+def enhancedFeatureExtractorFace(datum):
+    """
+    Your feature extraction playground for faces.
+    It is your choice to modify this.
+    """
+    features =  basicFeatureExtractorFace(datum)
+    return features
+
+def analysis(classifier, guesses, testLabels, testData, rawTestData, printImage):
+    """
+    This function is called after learning.
+    Include any code that you want here to help you analyze your results.
+
+    Use the printImage(<list of pixels>) function to visualize features.
+
+    An example of use has been given to you.
+
+    - classifier is the trained classifier
+    - guesses is the list of labels predicted by your classifier on the test set
+    - testLabels is the list of true labels
+    - testData is the list of training datapoints (as util.Counter of features)
+    - rawTestData is the list of training datapoints (as samples.Datum)
+    - printImage is a method to visualize the features
+    (see its use in the odds ratio part in runClassifier method)
+
+    This code won't be evaluated. It is for your own optional use
+    (and you can modify the signature if you want).
+    """
+
+    # Put any code here...
+    # Example of use:
+    # for i in range(len(guesses)):
+    #     prediction = guesses[i]
+    #     truth = testLabels[i]
+    #     if (prediction != truth):
+    #         print("===================================")
+    #         print("Mistake on example %d" % i)
+    #         print("Predicted %d; truth is %d" % (prediction, truth))
+    #         print("Image: ")
+    #         print(rawTestData[i])
+    #         break
+
+
+## =====================
+## You don't have to modify any code below.
+## =====================
+
+
+class ImagePrinter:
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+
+    def printImage(self, pixels):
+        """
+        Prints a Datum object that contains all pixels in the
+        provided list of pixels.  This will serve as a helper function
+        to the analysis function you write.
+
+        Pixels should take the form
+        [(2,2), (2, 3), ...]
+        where each tuple represents a pixel.
+        """
+        image = samples.Datum(None,self.width,self.height)
+        for pix in pixels:
+            try:
+            # This is so that new features that you could define which
+            # which are not of the form of (x,y) will not break
+            # this image printer...
+                x,y = pix
+                image.pixels[x][y] = 2
+            except:
+                print("new features:", pix)
+                continue
+        print(image)
+
+def default(str):
+    return str + ' [Default: %default]'
+
+USAGE_STRING = """
+  USAGE:      python dataClassifier.py <options>
+  EXAMPLES:   (1) python dataClassifier.py
+                  - trains the default mostFrequent classifier on the digit dataset
+                  using the default 100 training examples and
+                  then test the classifier on test data
+              (2) python dataClassifier.py -c naiveBayes -d digits -t 1000 -f -o -1 3 -2 6 -k 2.5
+                  - would run the naive Bayes classifier on 1000 training examples
+                  using the enhancedFeatureExtractorDigits function to get the features
+                  on the faces dataset, would use the smoothing parameter equals to 2.5, would
+                  test the classifier on the test data and performs an odd ratio analysis
+                  with label1=3 vs. label2=6
+                 """
+
+
+def readCommand( argv ):
+    "Processes the command used to run from the command line."
+    from optparse import OptionParser
+    parser = OptionParser(USAGE_STRING)
+
+    parser.add_option('-c', '--classifier', help=default('The type of classifier'), choices=['mostFrequent', 'nb', 'naiveBayes', 'perceptron', 'mira', 'minicontest'], default='mostFrequent')
+    parser.add_option('-d', '--data', help=default('Dataset to use'), choices=['digits', 'faces', 'pacman'], default='digits')
+    parser.add_option('-t', '--training', help=default('The size of the training set'), default=100, type="int")
+    parser.add_option('-f', '--features', help=default('Whether to use enhanced features'), default=False, action="store_true")
+    parser.add_option('-o', '--odds', help=default('Whether to compute odds ratios'), default=False, action="store_true")
+    parser.add_option('-1', '--label1', help=default("First label in an odds ratio comparison"), default=0, type="int")
+    parser.add_option('-2', '--label2', help=default("Second label in an odds ratio comparison"), default=1, type="int")
+    parser.add_option('-w', '--weights', help=default('Whether to print weights'), default=False, action="store_true")
+    parser.add_option('-k', '--smoothing', help=default("Smoothing parameter (ignored when using --autotune)"), type="float", default=2.0)
+    parser.add_option('-a', '--autotune', help=default("Whether to automatically tune hyperparameters"), default=False, action="store_true")
+    parser.add_option('-i', '--iterations', help=default("Maximum iterations to run training"), default=3, type="int")
+    parser.add_option('-s', '--test', help=default("Amount of test data to use"), default=TEST_SET_SIZE, type="int")
+    parser.add_option('-g', '--agentToClone', help=default("Pacman agent to copy"), default=None, type="str")
+
+    options, otherjunk = parser.parse_args(argv)
+    if len(otherjunk) != 0: raise Exception('Command line input not understood: ' + str(otherjunk))
+    args = {}
+
+    # Set up variables according to the command line input.
+    print("Doing classification")
+    print("--------------------")
+    print("data:\t\t" + options.data)
+    print("classifier:\t\t" + options.classifier)
+    if not options.classifier == 'minicontest':
+        print("using enhanced features?:\t" + str(options.features))
+    else:
+        print("using minicontest feature extractor")
+    print("training set size:\t" + str(options.training))
+    if(options.data=="digits"):
+        printImage = ImagePrinter(DIGIT_DATUM_WIDTH, DIGIT_DATUM_HEIGHT).printImage
+        if (options.features):
+            featureFunction = enhancedFeatureExtractorDigit
+        else:
+            featureFunction = basicFeatureExtractorDigit
+        if (options.classifier == 'minicontest'):
+            featureFunction = contestFeatureExtractorDigit
+    elif(options.data=="faces"):
+        printImage = ImagePrinter(FACE_DATUM_WIDTH, FACE_DATUM_HEIGHT).printImage
+        if (options.features):
+            featureFunction = enhancedFeatureExtractorFace
+        else:
+            featureFunction = basicFeatureExtractorFace
+    elif(options.data=="pacman"):
+        printImage = None
+        if (options.features):
+            featureFunction = enhancedFeatureExtractorPacman
+        else:
+            featureFunction = basicFeatureExtractorPacman
+    else:
+        print("Unknown dataset", options.data)
+        print(USAGE_STRING)
+        sys.exit(2)
+
+    if(options.data=="digits"):
+        legalLabels = range(10)
+    else:
+        legalLabels = ['Stop', 'West', 'East', 'North', 'South']
+
+    if options.training <= 0:
+        print("Training set size should be a positive integer (you provided: %d)" % options.training)
+        print(USAGE_STRING)
+        sys.exit(2)
+
+    if options.smoothing <= 0:
+        print("Please provide a positive number for smoothing (you provided: %f)" % options.smoothing)
+        print(USAGE_STRING)
+        sys.exit(2)
+
+    if options.odds:
+        if options.label1 not in legalLabels or options.label2 not in legalLabels:
+            print("Didn't provide a legal labels for the odds ratio: (%d,%d)" % (options.label1, options.label2))
+            print(USAGE_STRING)
+            sys.exit(2)
+
+    if(options.classifier == "mostFrequent"):
+        classifier = mostFrequent.MostFrequentClassifier(legalLabels)
+    elif(options.classifier == "naiveBayes" or options.classifier == "nb"):
+        classifier = naiveBayes.NaiveBayesClassifier(legalLabels)
+        classifier.setSmoothing(options.smoothing)
+        if (options.autotune):
+            print("using automatic tuning for naivebayes")
+            classifier.automaticTuning = True
+        else:
+            print("using smoothing parameter k=%f for naivebayes" %  options.smoothing)
+    elif(options.classifier == "perceptron"):
+        if options.data != 'pacman':
+            classifier = perceptron.PerceptronClassifier(legalLabels,options.iterations)
+        else:
+            classifier = perceptron_pacman.PerceptronClassifierPacman(legalLabels,options.iterations)
+    elif(options.classifier == "mira"):
+        if options.data != 'pacman':
+            classifier = mira.MiraClassifier(legalLabels, options.iterations)
+        if (options.autotune):
+            print("using automatic tuning for MIRA")
+            classifier.automaticTuning = True
+        else:
+            print("using default C=0.001 for MIRA")
+    elif(options.classifier == 'minicontest'):
+        import minicontest
+        classifier = minicontest.contestClassifier(legalLabels)
+    else:
+        print("Unknown classifier:", options.classifier)
+        print(USAGE_STRING)
+
+        sys.exit(2)
+
+    args['agentToClone'] = options.agentToClone
+
+    args['classifier'] = classifier
+    args['featureFunction'] = featureFunction
+    args['printImage'] = printImage
+
+    return args, options
+
+# Dictionary containing full path to .pkl file that contains the agent's training, validation, and testing data.
+MAP_AGENT_TO_PATH_OF_SAVED_GAMES = {
+    'FoodAgent': ('pacmandata/food_training.pkl','pacmandata/food_validation.pkl','pacmandata/food_test.pkl' ),
+    'StopAgent': ('pacmandata/stop_training.pkl','pacmandata/stop_validation.pkl','pacmandata/stop_test.pkl' ),
+    'SuicideAgent': ('pacmandata/suicide_training.pkl','pacmandata/suicide_validation.pkl','pacmandata/suicide_test.pkl' ),
+    'GoodReflexAgent': ('pacmandata/good_reflex_training.pkl','pacmandata/good_reflex_validation.pkl','pacmandata/good_reflex_test.pkl' ),
+    'ContestAgent': ('pacmandata/contest_training.pkl','pacmandata/contest_validation.pkl', 'pacmandata/contest_test.pkl' )
+}
+# Main harness code
+
+
+
+def runClassifier(args, options):
+    featureFunction = args['featureFunction']
+    classifier = args['classifier']
+    printImage = args['printImage']
+    
+    # Load data
+    numTraining = options.training
+    numTest = options.test
+
+    if(options.data=="pacman"):
+        agentToClone = args.get('agentToClone', None)
+        trainingData, validationData, testData = MAP_AGENT_TO_PATH_OF_SAVED_GAMES.get(agentToClone, (None, None, None))
+        trainingData = trainingData or args.get('trainingData', False) or MAP_AGENT_TO_PATH_OF_SAVED_GAMES['ContestAgent'][0]
+        validationData = validationData or args.get('validationData', False) or MAP_AGENT_TO_PATH_OF_SAVED_GAMES['ContestAgent'][1]
+        testData = testData or MAP_AGENT_TO_PATH_OF_SAVED_GAMES['ContestAgent'][2]
+        rawTrainingData, trainingLabels = samples.loadPacmanData(trainingData, numTraining)
+        rawValidationData, validationLabels = samples.loadPacmanData(validationData, numTest)
+        rawTestData, testLabels = samples.loadPacmanData(testData, numTest)
+    else:
+        rawTrainingData = samples.loadDataFile("digitdata/trainingimages", numTraining,DIGIT_DATUM_WIDTH,DIGIT_DATUM_HEIGHT)
+        trainingLabels = samples.loadLabelsFile("digitdata/traininglabels", numTraining)
+        rawValidationData = samples.loadDataFile("digitdata/validationimages", numTest,DIGIT_DATUM_WIDTH,DIGIT_DATUM_HEIGHT)
+        validationLabels = samples.loadLabelsFile("digitdata/validationlabels", numTest)
+        rawTestData = samples.loadDataFile("digitdata/testimages", numTest,DIGIT_DATUM_WIDTH,DIGIT_DATUM_HEIGHT)
+        testLabels = samples.loadLabelsFile("digitdata/testlabels", numTest)
+
+
+    # Extract features
+    print("Extracting features...")
+    trainingData = list(map(featureFunction, rawTrainingData))
+    validationData = list(map(featureFunction, rawValidationData))
+    testData = list(map(featureFunction, rawTestData))
+
+    # Conduct training and testing
+    print("Training...")
+    classifier.train(trainingData, trainingLabels, validationData, validationLabels)
+    print("Validating...")
+    guesses = classifier.classify(validationData)
+    correct = [guesses[i] == validationLabels[i] for i in range(len(validationLabels))].count(True)
+    print(str(correct), ("correct out of " + str(len(validationLabels)) + " (%.1f%%).") % (100.0 * correct / len(validationLabels)))
+    print("Testing...")
+    guesses = classifier.classify(testData)
+    correct = [guesses[i] == testLabels[i] for i in range(len(testLabels))].count(True)
+    print(str(correct), ("correct out of " + str(len(testLabels)) + " (%.1f%%).") % (100.0 * correct / len(testLabels)))
+    analysis(classifier, guesses, testLabels, testData, rawTestData, printImage)
+
+    # do odds ratio computation if specified at command line
+    if((options.odds) & (options.classifier == "naiveBayes" or (options.classifier == "nb")) ):
+        label1, label2 = options.label1, options.label2
+        features_odds = classifier.findHighOddsFeatures(label1,label2)
+        if(options.classifier == "naiveBayes" or options.classifier == "nb"):
+            string3 = "=== Features with highest odd ratio of label %d over label %d ===" % (label1, label2)
+        else:
+            string3 = "=== Features for which weight(label %d)-weight(label %d) is biggest ===" % (label1, label2)
+
+        print(string3)
+        printImage(features_odds)
+
+    if((options.weights) & (options.classifier == "perceptron")):
+        for l in classifier.legalLabels:
+            features_weights = classifier.findHighWeightFeatures(l)
+            print(("=== Features with high weight for label %d ==="%l))
+            printImage(features_weights)
+
+if __name__ == '__main__':
+    # Read input
+    args, options = readCommand( sys.argv[1:] )
+    # Run classifier
+    runClassifier(args, options)
+
+

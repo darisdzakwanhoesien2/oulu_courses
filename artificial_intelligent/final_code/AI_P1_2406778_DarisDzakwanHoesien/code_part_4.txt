@@ -1,0 +1,1915 @@
+# searchTestClasses.py
+# searchTestClasses.py
+# --------------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+import sys
+import re
+import testClasses
+import textwrap
+
+# import project specific code
+import layout
+import pacman
+from search import SearchProblem
+
+# helper function for printing solutions in solution files
+def wrap_solution(solution):
+    if type(solution) == type([]):
+        return '\n'.join(textwrap.wrap(' '.join(solution)))
+    else:
+        return str(solution)
+
+
+
+
+def followAction(state, action, problem):
+  for successor1, action1, cost1 in problem.getSuccessors(state):
+    if action == action1: return successor1
+  return None
+
+def followPath(path, problem):
+  state = problem.getStartState()
+  states = [state]
+  for action in path:
+    state = followAction(state, action, problem)
+    states.append(state)
+  return states
+
+def checkSolution(problem, path):
+  state = problem.getStartState()
+  for action in path:
+    state = followAction(state, action, problem)
+  return problem.isGoalState(state)
+
+# Search problem on a plain graph
+class GraphSearch(SearchProblem):
+
+    # Read in the state graph; define start/end states, edges and costs
+    def __init__(self, graph_text):
+        self.expanded_states = []
+        lines = graph_text.split('\n')
+        r = re.match('start_state:(.*)', lines[0])
+        if r == None:
+            print("Broken graph:")
+            print('"""%s"""' % graph_text)
+            raise Exception("GraphSearch graph specification start_state not found or incorrect on line 0")
+        self.start_state = r.group(1).strip()
+        r = re.match('goal_states:(.*)', lines[1])
+        if r == None:
+            print("Broken graph:")
+            print('"""%s"""' % graph_text)
+            raise Exception("GraphSearch graph specification goal_states not found or incorrect on line 1")
+        goals = r.group(1).split()
+        self.goals = [str.strip(g) for g in goals]
+        self.successors = {}
+        all_states = set()
+        self.orderedSuccessorTuples = []
+        for l in lines[2:]:
+            if len(l.split()) == 3:
+                start, action, next_state = l.split()
+                cost = 1
+            elif len(l.split()) == 4:
+                start, action, next_state, cost = l.split()
+            else:
+                print("Broken graph:")
+                print('"""%s"""' % graph_text)
+                raise Exception("Invalid line in GraphSearch graph specification on line:" + l)
+            cost = float(cost)
+            self.orderedSuccessorTuples.append((start, action, next_state, cost))
+            all_states.add(start)
+            all_states.add(next_state)
+            if start not in self.successors:
+                self.successors[start] = []
+            self.successors[start].append((next_state, action, cost))
+        for s in all_states:
+            if s not in self.successors:
+                self.successors[s] = []
+
+    # Get start state
+    def getStartState(self):
+        return self.start_state
+
+    # Check if a state is a goal state
+    def isGoalState(self, state):
+        return state in self.goals
+
+    # Get all successors of a state
+    def getSuccessors(self, state):
+        self.expanded_states.append(state)
+        return list(self.successors[state])
+
+    # Calculate total cost of a sequence of actions
+    def getCostOfActions(self, actions):
+        total_cost = 0
+        state = self.start_state
+        for a in actions:
+            successors = self.successors[state]
+            match = False
+            for (next_state, action, cost) in successors:
+                if a == action:
+                    state = next_state
+                    total_cost += cost
+                    match = True
+            if not match:
+                print('invalid action sequence')
+                sys.exit(1)
+        return total_cost
+
+    # Return a list of all states on which 'getSuccessors' was called
+    def getExpandedStates(self):
+        return self.expanded_states
+
+    def __str__(self):
+        print(self.successors)
+        edges = ["%s %s %s %s" % t for t in self.orderedSuccessorTuples]
+        return \
+"""start_state: %s
+goal_states: %s
+%s""" % (self.start_state, " ".join(self.goals), "\n".join(edges))
+
+
+
+def parseHeuristic(heuristicText):
+    heuristic = {}
+    for line in heuristicText.split('\n'):
+        tokens = line.split()
+        if len(tokens) != 2:
+            print("Broken heuristic:")
+            print('"""%s"""' % heuristicText)
+            raise Exception("GraphSearch heuristic specification broken at tokens:" + str(tokens))
+        state, h = tokens
+        heuristic[state] = float(h)
+
+    def graphHeuristic(state, problem=None):
+        if state in heuristic:
+            return heuristic[state]
+        else:
+            import pprint
+            pp = pprint.PrettyPrinter(indent=4)
+            print("Heuristic:")
+            pp.pprint(heuristic)
+            raise Exception("Graph heuristic called with invalid state: " + str(state))
+
+    return graphHeuristic
+
+
+class GraphSearchTest(testClasses.TestCase):
+
+    def __init__(self, question, testDict):
+        super(GraphSearchTest, self).__init__(question, testDict)
+        self.graph_text = testDict['graph']
+        self.alg = testDict['algorithm']
+        self.diagram = testDict['diagram']
+        self.exactExpansionOrder = testDict.get('exactExpansionOrder', 'True').lower() == "true"
+        if 'heuristic' in testDict:
+            self.heuristic = parseHeuristic(testDict['heuristic'])
+        else:
+            self.heuristic = None
+
+    # Note that the return type of this function is a tripple:
+    # (solution, expanded states, error message)
+    def getSolInfo(self, search):
+        alg = getattr(search, self.alg)
+        problem = GraphSearch(self.graph_text)
+        if self.heuristic != None:
+            solution = alg(problem, self.heuristic)
+        else:
+            solution = alg(problem)
+
+        if type(solution) != type([]):
+            return None, None, 'The result of %s must be a list. (Instead, it is %s)' % (self.alg, type(solution))
+
+        return solution, problem.getExpandedStates(), None
+
+    # Run student code.  If an error message is returned, print error and return false.
+    # If a good solution is returned, printn the solution and return true; otherwise,
+    # print both the correct and student's solution and return false.
+    def execute(self, grades, moduleDict, solutionDict):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        gold_solution = [str.split(solutionDict['solution']), str.split(solutionDict['rev_solution'])]
+        gold_expanded_states = [str.split(solutionDict['expanded_states']), str.split(solutionDict['rev_expanded_states'])]
+
+        solution, expanded_states, error = self.getSolInfo(search)
+        if error != None:
+            grades.addMessage('FAIL: %s' % self.path)
+            grades.addMessage('\t%s' % error)
+            return False
+
+        if solution in gold_solution and (not self.exactExpansionOrder or expanded_states in gold_expanded_states):
+            grades.addMessage('PASS: %s' % self.path)
+            grades.addMessage('\tsolution:\t\t%s' % solution)
+            grades.addMessage('\texpanded_states:\t%s' % expanded_states)
+            return True
+        else:
+            grades.addMessage('FAIL: %s' % self.path)
+            grades.addMessage('\tgraph:')
+            for line in self.diagram.split('\n'):
+                grades.addMessage('\t    %s' % (line,))
+            grades.addMessage('\tstudent solution:\t\t%s' % solution)
+            grades.addMessage('\tstudent expanded_states:\t%s' % expanded_states)
+            grades.addMessage('')
+            grades.addMessage('\tcorrect solution:\t\t%s' % gold_solution[0])
+            grades.addMessage('\tcorrect expanded_states:\t%s' % gold_expanded_states[0])
+            grades.addMessage('\tcorrect rev_solution:\t\t%s' % gold_solution[1])
+            grades.addMessage('\tcorrect rev_expanded_states:\t%s' % gold_expanded_states[1])
+            return False
+
+    def writeSolution(self, moduleDict, filePath):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        # open file and write comments
+        handle = open(filePath, 'w')
+        handle.write('# This is the solution file for %s.\n' % self.path)
+        handle.write('# This solution is designed to support both right-to-left\n')
+        handle.write('# and left-to-right implementations.\n')
+
+        # write forward solution
+        solution, expanded_states, error = self.getSolInfo(search)
+        if error != None: raise Exception("Error in solution code: %s" % error)
+        handle.write('solution: "%s"\n' % ' '.join(solution))
+        handle.write('expanded_states: "%s"\n' % ' '.join(expanded_states))
+
+        # reverse and write backwards solution
+        search.REVERSE_PUSH = not search.REVERSE_PUSH
+        solution, expanded_states, error = self.getSolInfo(search)
+        if error != None: raise Exception("Error in solution code: %s" % error)
+        handle.write('rev_solution: "%s"\n' % ' '.join(solution))
+        handle.write('rev_expanded_states: "%s"\n' % ' '.join(expanded_states))
+
+        # clean up
+        search.REVERSE_PUSH = not search.REVERSE_PUSH
+        handle.close()
+        return True
+
+
+
+class PacmanSearchTest(testClasses.TestCase):
+
+    def __init__(self, question, testDict):
+        super(PacmanSearchTest, self).__init__(question, testDict)
+        self.layout_text = testDict['layout']
+        self.alg = testDict['algorithm']
+        self.layoutName = testDict['layoutName']
+
+        # TODO: sensible to have defaults like this?
+        self.leewayFactor = float(testDict.get('leewayFactor', '1'))
+        self.costFn = eval(testDict.get('costFn', 'None'))
+        self.searchProblemClassName = testDict.get('searchProblemClass', 'PositionSearchProblem')
+        self.heuristicName = testDict.get('heuristic', None)
+
+
+    def getSolInfo(self, search, searchAgents):
+        alg = getattr(search, self.alg)
+        lay = layout.Layout([l.strip() for l in self.layout_text.split('\n')])
+        start_state = pacman.GameState()
+        start_state.initialize(lay, 0)
+
+        problemClass = getattr(searchAgents, self.searchProblemClassName)
+        problemOptions = {}
+        if self.costFn != None:
+            problemOptions['costFn'] = self.costFn
+        problem = problemClass(start_state, **problemOptions)
+        heuristic = getattr(searchAgents, self.heuristicName) if self.heuristicName != None else None
+
+        if heuristic != None:
+            solution = alg(problem, heuristic)
+        else:
+            solution = alg(problem)
+
+        if type(solution) != type([]):
+            return None, None, 'The result of %s must be a list. (Instead, it is %s)' % (self.alg, type(solution))
+
+        from game import Directions
+        dirs = Directions.LEFT.keys()
+        if [el in dirs for el in solution].count(False) != 0:
+            return None, None, 'Output of %s must be a list of actions from game.Directions' % self.alg
+
+        expanded = problem._expanded
+        return solution, expanded, None
+
+    def execute(self, grades, moduleDict, solutionDict):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        gold_solution = [str.split(solutionDict['solution']), str.split(solutionDict['rev_solution'])]
+        gold_expanded = max(int(solutionDict['expanded_nodes']), int(solutionDict['rev_expanded_nodes']))
+
+        solution, expanded, error = self.getSolInfo(search, searchAgents)
+        if error != None:
+            grades.addMessage('FAIL: %s' % self.path)
+            grades.addMessage('%s' % error)
+            return False
+
+        # FIXME: do we want to standardize test output format?
+
+        if solution not in gold_solution:
+            grades.addMessage('FAIL: %s' % self.path)
+            grades.addMessage('Solution not correct.')
+            grades.addMessage('\tstudent solution length: %s' % len(solution))
+            grades.addMessage('\tstudent solution:\n%s' % wrap_solution(solution))
+            grades.addMessage('')
+            grades.addMessage('\tcorrect solution length: %s' % len(gold_solution[0]))
+            grades.addMessage('\tcorrect (reversed) solution length: %s' % len(gold_solution[1]))
+            grades.addMessage('\tcorrect solution:\n%s' % wrap_solution(gold_solution[0]))
+            grades.addMessage('\tcorrect (reversed) solution:\n%s' % wrap_solution(gold_solution[1]))
+            return False
+
+        if expanded > self.leewayFactor * gold_expanded and expanded > gold_expanded + 1:
+            grades.addMessage('FAIL: %s' % self.path)
+            grades.addMessage('Too many node expanded; are you expanding nodes twice?')
+            grades.addMessage('\tstudent nodes expanded: %s' % expanded)
+            grades.addMessage('')
+            grades.addMessage('\tcorrect nodes expanded: %s (leewayFactor %s)' % (gold_expanded, self.leewayFactor))
+            return False
+
+        grades.addMessage('PASS: %s' % self.path)
+        grades.addMessage('\tpacman layout:\t\t%s' % self.layoutName)
+        grades.addMessage('\tsolution length: %s' % len(solution))
+        grades.addMessage('\tnodes expanded:\t\t%s' % expanded)
+        return True
+
+
+    def writeSolution(self, moduleDict, filePath):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        # open file and write comments
+        handle = open(filePath, 'w')
+        handle.write('# This is the solution file for %s.\n' % self.path)
+        handle.write('# This solution is designed to support both right-to-left\n')
+        handle.write('# and left-to-right implementations.\n')
+        handle.write('# Number of nodes expanded must be with a factor of %s of the numbers below.\n' % self.leewayFactor)
+
+        # write forward solution
+        solution, expanded, error = self.getSolInfo(search, searchAgents)
+        if error != None: raise Exception("Error in solution code: %s" % error)
+        handle.write('solution: """\n%s\n"""\n' % wrap_solution(solution))
+        handle.write('expanded_nodes: "%s"\n' % expanded)
+
+        # write backward solution
+        search.REVERSE_PUSH = not search.REVERSE_PUSH
+        solution, expanded, error = self.getSolInfo(search, searchAgents)
+        if error != None: raise Exception("Error in solution code: %s" % error)
+        handle.write('rev_solution: """\n%s\n"""\n' % wrap_solution(solution))
+        handle.write('rev_expanded_nodes: "%s"\n' % expanded)
+
+        # clean up
+        search.REVERSE_PUSH = not search.REVERSE_PUSH
+        handle.close()
+        return True
+
+
+from game import Actions
+def getStatesFromPath(start, path):
+    "Returns the list of states visited along the path"
+    vis = [start]
+    curr = start
+    for a in path:
+        x,y = curr
+        dx, dy = Actions.directionToVector(a)
+        curr = (int(x + dx), int(y + dy))
+        vis.append(curr)
+    return vis
+
+class CornerProblemTest(testClasses.TestCase):
+
+    def __init__(self, question, testDict):
+        super(CornerProblemTest, self).__init__(question, testDict)
+        self.layoutText = testDict['layout']
+        self.layoutName = testDict['layoutName']
+
+    def solution(self, search, searchAgents):
+        lay = layout.Layout([l.strip() for l in self.layoutText.split('\n')])
+        gameState = pacman.GameState()
+        gameState.initialize(lay, 0)
+        problem = searchAgents.CornersProblem(gameState)
+        path = search.bfs(problem)
+
+        gameState = pacman.GameState()
+        gameState.initialize(lay, 0)
+        visited = getStatesFromPath(gameState.getPacmanPosition(), path)
+        top, right = gameState.getWalls().height-2, gameState.getWalls().width-2
+        missedCorners = [p for p in ((1,1), (1,top), (right, 1), (right, top)) if p not in visited]
+
+        return path, missedCorners
+
+    def execute(self, grades, moduleDict, solutionDict):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        gold_length = int(solutionDict['solution_length'])
+        solution, missedCorners = self.solution(search, searchAgents)
+
+        if type(solution) != type([]):
+            grades.addMessage('FAIL: %s' % self.path)
+            grades.addMessage('The result must be a list. (Instead, it is %s)' % type(solution))
+            return False
+
+        if len(missedCorners) != 0:
+            grades.addMessage('FAIL: %s' % self.path)
+            grades.addMessage('Corners missed: %s' % missedCorners)
+            return False
+
+        if len(solution) != gold_length:
+            grades.addMessage('FAIL: %s' % self.path)
+            grades.addMessage('Optimal solution not found.')
+            grades.addMessage('\tstudent solution length:\n%s' % len(solution))
+            grades.addMessage('')
+            grades.addMessage('\tcorrect solution length:\n%s' % gold_length)
+            return False
+
+        grades.addMessage('PASS: %s' % self.path)
+        grades.addMessage('\tpacman layout:\t\t%s' % self.layoutName)
+        grades.addMessage('\tsolution length:\t\t%s' % len(solution))
+        return True
+
+    def writeSolution(self, moduleDict, filePath):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        # open file and write comments
+        handle = open(filePath, 'w')
+        handle.write('# This is the solution file for %s.\n' % self.path)
+
+        print("Solving problem", self.layoutName)
+        print(self.layoutText)
+
+        path, _ = self.solution(search, searchAgents)
+        length = len(path)
+        print("Problem solved")
+
+        handle.write('solution_length: "%s"\n' % length)
+        handle.close()
+
+
+
+
+# template = """class: "HeuristicTest"
+#
+# heuristic: "foodHeuristic"
+# searchProblemClass: "FoodSearchProblem"
+# layoutName: "Test %s"
+# layout: \"\"\"
+# %s
+# \"\"\"
+# """
+#
+# for i, (_, _, l) in enumerate(doneTests + foodTests):
+#     f = open("food_heuristic_%s.test" % (i+1), "w")
+#     f.write(template % (i+1, "\n".join(l)))
+#     f.close()
+
+class HeuristicTest(testClasses.TestCase):
+
+    def __init__(self, question, testDict):
+        super(HeuristicTest, self).__init__(question, testDict)
+        self.layoutText = testDict['layout']
+        self.layoutName = testDict['layoutName']
+        self.searchProblemClassName = testDict['searchProblemClass']
+        self.heuristicName = testDict['heuristic']
+
+    def setupProblem(self, searchAgents):
+        lay = layout.Layout([l.strip() for l in self.layoutText.split('\n')])
+        gameState = pacman.GameState()
+        gameState.initialize(lay, 0)
+        problemClass = getattr(searchAgents, self.searchProblemClassName)
+        problem = problemClass(gameState)
+        state = problem.getStartState()
+        heuristic = getattr(searchAgents, self.heuristicName)
+
+        return problem, state, heuristic
+
+    def checkHeuristic(self, heuristic, problem, state, solutionCost):
+        h0 = heuristic(state, problem)
+
+        if solutionCost == 0:
+            if h0 == 0:
+                return True, ''
+            else:
+                return False, 'Heuristic failed H(goal) == 0 test'
+
+        if h0 < 0:
+            return False, 'Heuristic failed H >= 0 test'
+        if not h0 > 0:
+            return False, 'Heuristic failed non-triviality test'
+        if not h0 <= solutionCost:
+            return False, 'Heuristic failed admissibility test'
+
+        for succ, action, stepCost in problem.getSuccessors(state):
+            h1 = heuristic(succ, problem)
+            if h1 < 0: return False, 'Heuristic failed H >= 0 test'
+            if h0 - h1 > stepCost: return False, 'Heuristic failed consistency test'
+
+        return True, ''
+
+    def execute(self, grades, moduleDict, solutionDict):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        solutionCost = int(solutionDict['solution_cost'])
+        problem, state, heuristic = self.setupProblem(searchAgents)
+
+        passed, message = self.checkHeuristic(heuristic, problem, state, solutionCost)
+
+        if not passed:
+            grades.addMessage('FAIL: %s' % self.path)
+            grades.addMessage('%s' % message)
+            return False
+        else:
+            grades.addMessage('PASS: %s' % self.path)
+            return True
+
+    def writeSolution(self, moduleDict, filePath):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        # open file and write comments
+        handle = open(filePath, 'w')
+        handle.write('# This is the solution file for %s.\n' % self.path)
+
+        print("Solving problem", self.layoutName, self.heuristicName)
+        print(self.layoutText)
+        problem, _, heuristic = self.setupProblem(searchAgents)
+        path = search.astar(problem, heuristic)
+        cost = problem.getCostOfActions(path)
+        print("Problem solved")
+
+        handle.write('solution_cost: "%s"\n' % cost)
+        handle.close()
+        return True
+
+
+
+
+
+
+class HeuristicGrade(testClasses.TestCase):
+
+    def __init__(self, question, testDict):
+        super(HeuristicGrade, self).__init__(question, testDict)
+        self.layoutText = testDict['layout']
+        self.layoutName = testDict['layoutName']
+        self.searchProblemClassName = testDict['searchProblemClass']
+        self.heuristicName = testDict['heuristic']
+        self.basePoints = int(testDict['basePoints'])
+        self.thresholds = [int(t) for t in testDict['gradingThresholds'].split()]
+
+    def setupProblem(self, searchAgents):
+        lay = layout.Layout([l.strip() for l in self.layoutText.split('\n')])
+        gameState = pacman.GameState()
+        gameState.initialize(lay, 0)
+        problemClass = getattr(searchAgents, self.searchProblemClassName)
+        problem = problemClass(gameState)
+        state = problem.getStartState()
+        heuristic = getattr(searchAgents, self.heuristicName)
+
+        return problem, state, heuristic
+
+
+    def execute(self, grades, moduleDict, solutionDict):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        problem, _, heuristic = self.setupProblem(searchAgents)
+
+        path = search.astar(problem, heuristic)
+
+        expanded = problem._expanded
+
+        if not checkSolution(problem, path):
+            grades.addMessage('FAIL: %s' % self.path)
+            grades.addMessage('\tReturned path is not a solution.')
+            grades.addMessage('\tpath returned by astar: %s' % expanded)
+            return False
+
+        grades.addPoints(self.basePoints)
+        points = 0
+        for threshold in self.thresholds:
+            if expanded <= threshold:
+                points += 1
+        grades.addPoints(points)
+        if points >= len(self.thresholds):
+            grades.addMessage('PASS: %s' % self.path)
+        else:
+            grades.addMessage('FAIL: %s' % self.path)
+        grades.addMessage('\texpanded nodes: %s' % expanded)
+        grades.addMessage('\tthresholds: %s' % self.thresholds)
+
+        return True
+
+
+    def writeSolution(self, moduleDict, filePath):
+        handle = open(filePath, 'w')
+        handle.write('# This is the solution file for %s.\n' % self.path)
+        handle.write('# File intentionally blank.\n')
+        handle.close()
+        return True
+
+
+
+
+
+# template = """class: "ClosestDotTest"
+#
+# layoutName: "Test %s"
+# layout: \"\"\"
+# %s
+# \"\"\"
+# """
+#
+# for i, (_, _, l) in enumerate(foodTests):
+#     f = open("closest_dot_%s.test" % (i+1), "w")
+#     f.write(template % (i+1, "\n".join(l)))
+#     f.close()
+
+class ClosestDotTest(testClasses.TestCase):
+
+    def __init__(self, question, testDict):
+        super(ClosestDotTest, self).__init__(question, testDict)
+        self.layoutText = testDict['layout']
+        self.layoutName = testDict['layoutName']
+
+    def solution(self, searchAgents):
+        lay = layout.Layout([l.strip() for l in self.layoutText.split('\n')])
+        gameState = pacman.GameState()
+        gameState.initialize(lay, 0)
+        path = searchAgents.ClosestDotSearchAgent().findPathToClosestDot(gameState)
+        return path
+
+    def execute(self, grades, moduleDict, solutionDict):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        gold_length = int(solutionDict['solution_length'])
+        solution = self.solution(searchAgents)
+
+        if type(solution) != type([]):
+            grades.addMessage('FAIL: %s' % self.path)
+            grades.addMessage('\tThe result must be a list. (Instead, it is %s)' % type(solution))
+            return False
+
+        if len(solution) != gold_length:
+            grades.addMessage('FAIL: %s' % self.path)
+            grades.addMessage('Closest dot not found.')
+            grades.addMessage('\tstudent solution length:\n%s' % len(solution))
+            grades.addMessage('')
+            grades.addMessage('\tcorrect solution length:\n%s' % gold_length)
+            return False
+
+        grades.addMessage('PASS: %s' % self.path)
+        grades.addMessage('\tpacman layout:\t\t%s' % self.layoutName)
+        grades.addMessage('\tsolution length:\t\t%s' % len(solution))
+        return True
+
+    def writeSolution(self, moduleDict, filePath):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        # open file and write comments
+        handle = open(filePath, 'w')
+        handle.write('# This is the solution file for %s.\n' % self.path)
+
+        print("Solving problem", self.layoutName)
+        print(self.layoutText)
+
+        length = len(self.solution(searchAgents))
+        print("Problem solved")
+
+        handle.write('solution_length: "%s"\n' % length)
+        handle.close()
+        return True
+
+
+
+
+class CornerHeuristicSanity(testClasses.TestCase):
+
+    def __init__(self, question, testDict):
+        super(CornerHeuristicSanity, self).__init__(question, testDict)
+        self.layout_text = testDict['layout']
+
+    def execute(self, grades, moduleDict, solutionDict):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        game_state = pacman.GameState()
+        lay = layout.Layout([l.strip() for l in self.layout_text.split('\n')])
+        game_state.initialize(lay, 0)
+        problem = searchAgents.CornersProblem(game_state)
+        start_state = problem.getStartState()
+        h0 = searchAgents.cornersHeuristic(start_state, problem)
+        succs = problem.getSuccessors(start_state)
+        # cornerConsistencyA
+        for succ in succs:
+            h1 = searchAgents.cornersHeuristic(succ[0], problem)
+            if h0 - h1 > 1:
+                grades.addMessage('FAIL: inconsistent heuristic')
+                return False
+        heuristic_cost = searchAgents.cornersHeuristic(start_state, problem)
+        true_cost = float(solutionDict['cost'])
+        # cornerNontrivial
+        if heuristic_cost == 0:
+            grades.addMessage('FAIL: must use non-trivial heuristic')
+            return False
+        # cornerAdmissible
+        if heuristic_cost > true_cost:
+            grades.addMessage('FAIL: Inadmissible heuristic')
+            return False
+        path = solutionDict['path'].split()
+        states = followPath(path, problem)
+        heuristics = []
+        for state in states:
+            heuristics.append(searchAgents.cornersHeuristic(state, problem))
+        for i in range(0, len(heuristics) - 1):
+            h0 = heuristics[i]
+            h1 = heuristics[i+1]
+            # cornerConsistencyB
+            if h0 - h1 > 1:
+                grades.addMessage('FAIL: inconsistent heuristic')
+                return False
+            # cornerPosH
+            if h0 < 0 or h1 <0:
+                grades.addMessage('FAIL: non-positive heuristic')
+                return False
+        # cornerGoalH
+        if heuristics[len(heuristics) - 1] != 0:
+            grades.addMessage('FAIL: heuristic non-zero at goal')
+            return False
+        grades.addMessage('PASS: heuristic value less than true cost at start state')
+        return True
+
+    def writeSolution(self, moduleDict, filePath):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        # write comment
+        handle = open(filePath, 'w')
+        handle.write('# In order for a heuristic to be admissible, the value\n')
+        handle.write('# of the heuristic must be less at each state than the\n')
+        handle.write('# true cost of the optimal path from that state to a goal.\n')
+
+        # solve problem and write solution
+        lay = layout.Layout([l.strip() for l in self.layout_text.split('\n')])
+        start_state = pacman.GameState()
+        start_state.initialize(lay, 0)
+        problem = searchAgents.CornersProblem(start_state)
+        solution = search.astar(problem, searchAgents.cornersHeuristic)
+        handle.write('cost: "%d"\n' % len(solution))
+        handle.write('path: """\n%s\n"""\n' % wrap_solution(solution))
+        handle.close()
+        return True
+
+
+
+class CornerHeuristicPacman(testClasses.TestCase):
+
+    def __init__(self, question, testDict):
+        super(CornerHeuristicPacman, self).__init__(question, testDict)
+        self.layout_text = testDict['layout']
+
+    def execute(self, grades, moduleDict, solutionDict):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        total = 0
+        true_cost = float(solutionDict['cost'])
+        thresholds = [int(x) for x in solutionDict['thresholds'].split()]
+        game_state = pacman.GameState()
+        lay = layout.Layout([l.strip() for l in self.layout_text.split('\n')])
+        game_state.initialize(lay, 0)
+        problem = searchAgents.CornersProblem(game_state)
+        start_state = problem.getStartState()
+        if searchAgents.cornersHeuristic(start_state, problem) > true_cost:
+            grades.addMessage('FAIL: Inadmissible heuristic')
+            return False
+        path = search.astar(problem, searchAgents.cornersHeuristic)
+        print("path:", path)
+        print("path length:", len(path))
+        cost = problem.getCostOfActions(path)
+        if cost > true_cost:
+            grades.addMessage('FAIL: Inconsistent heuristic')
+            return False
+        expanded = problem._expanded
+        points = 0
+        for threshold in thresholds:
+            if expanded <= threshold:
+                points += 1
+        grades.addPoints(points)
+        if points >= len(thresholds):
+            grades.addMessage('PASS: Heuristic resulted in expansion of %d nodes' % expanded)
+        else:
+            grades.addMessage('FAIL: Heuristic resulted in expansion of %d nodes' % expanded)
+        return True
+
+    def writeSolution(self, moduleDict, filePath):
+        search = moduleDict['search']
+        searchAgents = moduleDict['searchAgents']
+        # write comment
+        handle = open(filePath, 'w')
+        handle.write('# This solution file specifies the length of the optimal path\n')
+        handle.write('# as well as the thresholds on number of nodes expanded to be\n')
+        handle.write('# used in scoring.\n')
+
+        # solve problem and write solution
+        lay = layout.Layout([l.strip() for l in self.layout_text.split('\n')])
+        start_state = pacman.GameState()
+        start_state.initialize(lay, 0)
+        problem = searchAgents.CornersProblem(start_state)
+        solution = search.astar(problem, searchAgents.cornersHeuristic)
+        handle.write('cost: "%d"\n' % len(solution))
+        handle.write('path: """\n%s\n"""\n' % wrap_solution(solution))
+        handle.write('thresholds: "2000 1600 1200"\n')
+        handle.close()
+        return True
+
+
+
+# submission_autograder.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+from __future__ import print_function
+from codecs import open
+import os, ssl
+if (not os.environ.get('PYTHONHTTPSVERIFY', '') and getattr(ssl, '_create_unverified_context', None)):
+    ssl._create_default_https_context = ssl._create_unverified_context
+
+"""
+CS 188 Local Submission Autograder
+Written by the CS 188 Staff
+
+==============================================================================
+   _____ _              _ 
+  / ____| |            | |
+ | (___ | |_ ___  _ __ | |
+  \___ \| __/ _ \| '_ \| |
+  ____) | || (_) | |_) |_|
+ |_____/ \__\___/| .__/(_)
+                 | |      
+                 |_|      
+
+Modifying or tampering with this file is a violation of course policy.
+If you're having trouble running the autograder, please contact the staff.
+==============================================================================
+"""
+import bz2, base64
+exec(bz2.decompress(base64.b64decode('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')))
+
+
+
+# testClasses.py
+# testClasses.py
+# --------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+# import modules from python standard library
+import inspect
+import re
+import sys
+
+
+# Class which models a question in a project.  Note that questions have a
+# maximum number of points they are worth, and are composed of a series of
+# test cases
+class Question(object):
+
+    def raiseNotDefined(self):
+        print('Method not implemented: %s' % inspect.stack()[1][3])
+        sys.exit(1)
+
+    def __init__(self, questionDict, display):
+        self.maxPoints = int(questionDict['max_points'])
+        self.testCases = []
+        self.display = display
+
+    def getDisplay(self):
+        return self.display
+
+    def getMaxPoints(self):
+        return self.maxPoints
+
+    # Note that 'thunk' must be a function which accepts a single argument,
+    # namely a 'grading' object
+    def addTestCase(self, testCase, thunk):
+        self.testCases.append((testCase, thunk))
+
+    def execute(self, grades):
+        self.raiseNotDefined()
+
+# Question in which all test cases must be passed in order to receive credit
+class PassAllTestsQuestion(Question):
+
+    def execute(self, grades):
+        # TODO: is this the right way to use grades?  The autograder doesn't seem to use it.
+        testsFailed = False
+        grades.assignZeroCredit()
+        for _, f in self.testCases:
+            if not f(grades):
+                testsFailed = True
+        if testsFailed:
+            grades.fail("Tests failed.")
+        else:
+            grades.assignFullCredit()
+
+class ExtraCreditPassAllTestsQuestion(Question):
+    def __init__(self, questionDict, display):
+        Question.__init__(self, questionDict, display)
+        self.extraPoints = int(questionDict['extra_points'])
+
+    def execute(self, grades):
+        # TODO: is this the right way to use grades?  The autograder doesn't seem to use it.
+        testsFailed = False
+        grades.assignZeroCredit()
+        for _, f in self.testCases:
+            if not f(grades):
+                testsFailed = True
+        if testsFailed:
+            grades.fail("Tests failed.")
+        else:
+            grades.assignFullCredit()
+            grades.addPoints(self.extraPoints)
+
+# Question in which predict credit is given for test cases with a ``points'' property.
+# All other tests are mandatory and must be passed.
+class HackedPartialCreditQuestion(Question):
+
+    def execute(self, grades):
+        # TODO: is this the right way to use grades?  The autograder doesn't seem to use it.
+        grades.assignZeroCredit()
+
+        points = 0
+        passed = True
+        for testCase, f in self.testCases:
+            testResult = f(grades)
+            if "points" in testCase.testDict:
+                if testResult: points += float(testCase.testDict["points"])
+            else:
+                passed = passed and testResult
+
+        ## FIXME: Below terrible hack to match q3's logic
+        if int(points) == self.maxPoints and not passed:
+            grades.assignZeroCredit()
+        else:
+            grades.addPoints(int(points))
+
+
+class Q6PartialCreditQuestion(Question):
+    """Fails any test which returns False, otherwise doesn't effect the grades object.
+    Partial credit tests will add the required points."""
+
+    def execute(self, grades):
+        grades.assignZeroCredit()
+
+        results = []
+        for _, f in self.testCases:
+            results.append(f(grades))
+        if False in results:
+            grades.assignZeroCredit()
+
+class PartialCreditQuestion(Question):
+    """Fails any test which returns False, otherwise doesn't effect the grades object.
+    Partial credit tests will add the required points."""
+
+    def execute(self, grades):
+        grades.assignZeroCredit()
+
+        for _, f in self.testCases:
+            if not f(grades):
+                grades.assignZeroCredit()
+                grades.fail("Tests failed.")
+                return False
+
+
+
+class NumberPassedQuestion(Question):
+    """Grade is the number of test cases passed."""
+
+    def execute(self, grades):
+        grades.addPoints([f(grades) for _, f in self.testCases].count(True))
+
+
+
+
+
+# Template modeling a generic test case
+class TestCase(object):
+
+    def raiseNotDefined(self):
+        print('Method not implemented: %s' % inspect.stack()[1][3])
+        sys.exit(1)
+
+    def getPath(self):
+        return self.path
+
+    def __init__(self, question, testDict):
+        self.question = question
+        self.testDict = testDict
+        self.path = testDict['path']
+        self.messages = []
+
+    def __str__(self):
+        self.raiseNotDefined()
+
+    def execute(self, grades, moduleDict, solutionDict):
+        self.raiseNotDefined()
+
+    def writeSolution(self, moduleDict, filePath):
+        self.raiseNotDefined()
+        return True
+
+    # Tests should call the following messages for grading
+    # to ensure a uniform format for test output.
+    #
+    # TODO: this is hairy, but we need to fix grading.py's interface
+    # to get a nice hierarchical project - question - test structure,
+    # then these should be moved into Question proper.
+    def testPass(self, grades):
+        grades.addMessage('PASS: %s' % (self.path,))
+        for line in self.messages:
+            grades.addMessage('    %s' % (line,))
+        return True
+
+    def testFail(self, grades):
+        grades.addMessage('FAIL: %s' % (self.path,))
+        for line in self.messages:
+            grades.addMessage('    %s' % (line,))
+        return False
+
+    # This should really be question level?
+    #
+    def testPartial(self, grades, points, maxPoints):
+        grades.addPoints(points)
+        extraCredit = max(0, points - maxPoints)
+        regularCredit = points - extraCredit
+
+        grades.addMessage('%s: %s (%s of %s points)' % ("PASS" if points >= maxPoints else "FAIL", self.path, regularCredit, maxPoints))
+        if extraCredit > 0:
+            grades.addMessage('EXTRA CREDIT: %s points' % (extraCredit,))
+
+        for line in self.messages:
+            grades.addMessage('    %s' % (line,))
+
+        return True
+
+    def addMessage(self, message):
+        self.messages.extend(message.split('\n'))
+
+
+
+# testParser.py
+# testParser.py
+# -------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+import re
+import sys
+
+class TestParser(object):
+
+    def __init__(self, path):
+        # save the path to the test file
+        self.path = path
+
+    def removeComments(self, rawlines):
+        # remove any portion of a line following a '#' symbol
+        fixed_lines = []
+        for l in rawlines:
+            idx = l.find('#')
+            if idx == -1:
+                fixed_lines.append(l)
+            else:
+                fixed_lines.append(l[0:idx])
+        return '\n'.join(fixed_lines)
+
+    def parse(self):
+        # read in the test case and remove comments
+        test = {}
+        with open(self.path) as handle:
+            raw_lines = handle.read().split('\n')
+
+        test_text = self.removeComments(raw_lines)
+        test['__raw_lines__'] = raw_lines
+        test['path'] = self.path
+        test['__emit__'] = []
+        lines = test_text.split('\n')
+        i = 0
+        # read a property in each loop cycle
+        while(i < len(lines)):
+            # skip blank lines
+            if re.match('\A\s*\Z', lines[i]):
+                test['__emit__'].append(("raw", raw_lines[i]))
+                i += 1
+                continue
+            m = re.match('\A([^"]*?):\s*"([^"]*)"\s*\Z', lines[i])
+            if m:
+                test[m.group(1)] = m.group(2)
+                test['__emit__'].append(("oneline", m.group(1)))
+                i += 1
+                continue
+            m = re.match('\A([^"]*?):\s*"""\s*\Z', lines[i])
+            if m:
+                msg = []
+                i += 1
+                while(not re.match('\A\s*"""\s*\Z', lines[i])):
+                    msg.append(raw_lines[i])
+                    i += 1
+                test[m.group(1)] = '\n'.join(msg)
+                test['__emit__'].append(("multiline", m.group(1)))
+                i += 1
+                continue
+            print('error parsing test file: %s' % self.path)
+            sys.exit(1)
+        return test
+
+
+def emitTestDict(testDict, handle):
+    for kind, data in testDict['__emit__']:
+        if kind == "raw":
+            handle.write(data + "\n")
+        elif kind == "oneline":
+            handle.write('%s: "%s"\n' % (data, testDict[data]))
+        elif kind == "multiline":
+            handle.write('%s: """\n%s\n"""\n' % (data, testDict[data]))
+        else:
+            raise Exception("Bad __emit__")
+
+
+# textDisplay.py
+# textDisplay.py
+# --------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+import time
+try: 
+    import pacman
+except:
+    pass
+
+DRAW_EVERY = 1
+SLEEP_TIME = 0 # This can be overwritten by __init__
+DISPLAY_MOVES = False
+QUIET = False # Supresses output
+
+class NullGraphics:
+    def initialize(self, state, isBlue = False):
+        pass
+
+    def update(self, state):
+        pass
+
+    def checkNullDisplay(self):
+        return True
+
+    def pause(self):
+        time.sleep(SLEEP_TIME)
+
+    def draw(self, state):
+        print(state)
+
+    def updateDistributions(self, dist):
+        pass
+
+    def finish(self):
+        pass
+
+class PacmanGraphics:
+    def __init__(self, speed=None):
+        if speed != None:
+            global SLEEP_TIME
+            SLEEP_TIME = speed
+
+    def initialize(self, state, isBlue = False):
+        self.draw(state)
+        self.pause()
+        self.turn = 0
+        self.agentCounter = 0
+
+    def update(self, state):
+        numAgents = len(state.agentStates)
+        self.agentCounter = (self.agentCounter + 1) % numAgents
+        if self.agentCounter == 0:
+            self.turn += 1
+            if DISPLAY_MOVES:
+                ghosts = [pacman.nearestPoint(state.getGhostPosition(i)) for i in range(1, numAgents)]
+                print("%4d) P: %-8s" % (self.turn, str(pacman.nearestPoint(state.getPacmanPosition()))),'| Score: %-5d' % state.score,'| Ghosts:', ghosts)
+            if self.turn % DRAW_EVERY == 0:
+                self.draw(state)
+                self.pause()
+        if state._win or state._lose:
+            self.draw(state)
+
+    def pause(self):
+        time.sleep(SLEEP_TIME)
+
+    def draw(self, state):
+        print(state)
+
+    def finish(self):
+        pass
+
+
+# util.py
+# util.py
+# -------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+# util.py
+# -------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+import sys
+import inspect
+import heapq, random
+
+
+class FixedRandom:
+    def __init__(self):
+        fixedState = (3, (2147483648, 507801126, 683453281, 310439348, 2597246090, \
+            2209084787, 2267831527, 979920060, 3098657677, 37650879, 807947081, 3974896263, \
+            881243242, 3100634921, 1334775171, 3965168385, 746264660, 4074750168, 500078808, \
+            776561771, 702988163, 1636311725, 2559226045, 157578202, 2498342920, 2794591496, \
+            4130598723, 496985844, 2944563015, 3731321600, 3514814613, 3362575829, 3038768745, \
+            2206497038, 1108748846, 1317460727, 3134077628, 988312410, 1674063516, 746456451, \
+            3958482413, 1857117812, 708750586, 1583423339, 3466495450, 1536929345, 1137240525, \
+            3875025632, 2466137587, 1235845595, 4214575620, 3792516855, 657994358, 1241843248, \
+            1695651859, 3678946666, 1929922113, 2351044952, 2317810202, 2039319015, 460787996, \
+            3654096216, 4068721415, 1814163703, 2904112444, 1386111013, 574629867, 2654529343, \
+            3833135042, 2725328455, 552431551, 4006991378, 1331562057, 3710134542, 303171486, \
+            1203231078, 2670768975, 54570816, 2679609001, 578983064, 1271454725, 3230871056, \
+            2496832891, 2944938195, 1608828728, 367886575, 2544708204, 103775539, 1912402393, \
+            1098482180, 2738577070, 3091646463, 1505274463, 2079416566, 659100352, 839995305, \
+            1696257633, 274389836, 3973303017, 671127655, 1061109122, 517486945, 1379749962, \
+            3421383928, 3116950429, 2165882425, 2346928266, 2892678711, 2936066049, 1316407868, \
+            2873411858, 4279682888, 2744351923, 3290373816, 1014377279, 955200944, 4220990860, \
+            2386098930, 1772997650, 3757346974, 1621616438, 2877097197, 442116595, 2010480266, \
+            2867861469, 2955352695, 605335967, 2222936009, 2067554933, 4129906358, 1519608541, \
+            1195006590, 1942991038, 2736562236, 279162408, 1415982909, 4099901426, 1732201505, \
+            2934657937, 860563237, 2479235483, 3081651097, 2244720867, 3112631622, 1636991639, \
+            3860393305, 2312061927, 48780114, 1149090394, 2643246550, 1764050647, 3836789087, \
+            3474859076, 4237194338, 1735191073, 2150369208, 92164394, 756974036, 2314453957, \
+            323969533, 4267621035, 283649842, 810004843, 727855536, 1757827251, 3334960421, \
+            3261035106, 38417393, 2660980472, 1256633965, 2184045390, 811213141, 2857482069, \
+            2237770878, 3891003138, 2787806886, 2435192790, 2249324662, 3507764896, 995388363, \
+            856944153, 619213904, 3233967826, 3703465555, 3286531781, 3863193356, 2992340714, \
+            413696855, 3865185632, 1704163171, 3043634452, 2225424707, 2199018022, 3506117517, \
+            3311559776, 3374443561, 1207829628, 668793165, 1822020716, 2082656160, 1160606415, \
+            3034757648, 741703672, 3094328738, 459332691, 2702383376, 1610239915, 4162939394, \
+            557861574, 3805706338, 3832520705, 1248934879, 3250424034, 892335058, 74323433, \
+            3209751608, 3213220797, 3444035873, 3743886725, 1783837251, 610968664, 580745246, \
+            4041979504, 201684874, 2673219253, 1377283008, 3497299167, 2344209394, 2304982920, \
+            3081403782, 2599256854, 3184475235, 3373055826, 695186388, 2423332338, 222864327, \
+            1258227992, 3627871647, 3487724980, 4027953808, 3053320360, 533627073, 3026232514, \
+            2340271949, 867277230, 868513116, 2158535651, 2487822909, 3428235761, 3067196046, \
+            3435119657, 1908441839, 788668797, 3367703138, 3317763187, 908264443, 2252100381, \
+            764223334, 4127108988, 384641349, 3377374722, 1263833251, 1958694944, 3847832657, \
+            1253909612, 1096494446, 555725445, 2277045895, 3340096504, 1383318686, 4234428127, \
+            1072582179, 94169494, 1064509968, 2681151917, 2681864920, 734708852, 1338914021, \
+            1270409500, 1789469116, 4191988204, 1716329784, 2213764829, 3712538840, 919910444, \
+            1318414447, 3383806712, 3054941722, 3378649942, 1205735655, 1268136494, 2214009444, \
+            2532395133, 3232230447, 230294038, 342599089, 772808141, 4096882234, 3146662953, \
+            2784264306, 1860954704, 2675279609, 2984212876, 2466966981, 2627986059, 2985545332, \
+            2578042598, 1458940786, 2944243755, 3959506256, 1509151382, 325761900, 942251521, \
+            4184289782, 2756231555, 3297811774, 1169708099, 3280524138, 3805245319, 3227360276, \
+            3199632491, 2235795585, 2865407118, 36763651, 2441503575, 3314890374, 1755526087, \
+            17915536, 1196948233, 949343045, 3815841867, 489007833, 2654997597, 2834744136, \
+            417688687, 2843220846, 85621843, 747339336, 2043645709, 3520444394, 1825470818, \
+            647778910, 275904777, 1249389189, 3640887431, 4200779599, 323384601, 3446088641, \
+            4049835786, 1718989062, 3563787136, 44099190, 3281263107, 22910812, 1826109246, \
+            745118154, 3392171319, 1571490704, 354891067, 815955642, 1453450421, 940015623, \
+            796817754, 1260148619, 3898237757, 176670141, 1870249326, 3317738680, 448918002, \
+            4059166594, 2003827551, 987091377, 224855998, 3520570137, 789522610, 2604445123, \
+            454472869, 475688926, 2990723466, 523362238, 3897608102, 806637149, 2642229586, \
+            2928614432, 1564415411, 1691381054, 3816907227, 4082581003, 1895544448, 3728217394, \
+            3214813157, 4054301607, 1882632454, 2873728645, 3694943071, 1297991732, 2101682438, \
+            3952579552, 678650400, 1391722293, 478833748, 2976468591, 158586606, 2576499787, \
+            662690848, 3799889765, 3328894692, 2474578497, 2383901391, 1718193504, 3003184595, \
+            3630561213, 1929441113, 3848238627, 1594310094, 3040359840, 3051803867, 2462788790, \
+            954409915, 802581771, 681703307, 545982392, 2738993819, 8025358, 2827719383, \
+            770471093, 3484895980, 3111306320, 3900000891, 2116916652, 397746721, 2087689510, \
+            721433935, 1396088885, 2751612384, 1998988613, 2135074843, 2521131298, 707009172, \
+            2398321482, 688041159, 2264560137, 482388305, 207864885, 3735036991, 3490348331, \
+            1963642811, 3260224305, 3493564223, 1939428454, 1128799656, 1366012432, 2858822447, \
+            1428147157, 2261125391, 1611208390, 1134826333, 2374102525, 3833625209, 2266397263, \
+            3189115077, 770080230, 2674657172, 4280146640, 3604531615, 4235071805, 3436987249, \
+            509704467, 2582695198, 4256268040, 3391197562, 1460642842, 1617931012, 457825497, \
+            1031452907, 1330422862, 4125947620, 2280712485, 431892090, 2387410588, 2061126784, \
+            896457479, 3480499461, 2488196663, 4021103792, 1877063114, 2744470201, 1046140599, \
+            2129952955, 3583049218, 4217723693, 2720341743, 820661843, 1079873609, 3360954200, \
+            3652304997, 3335838575, 2178810636, 1908053374, 4026721976, 1793145418, 476541615, \
+            973420250, 515553040, 919292001, 2601786155, 1685119450, 3030170809, 1590676150, \
+            1665099167, 651151584, 2077190587, 957892642, 646336572, 2743719258, 866169074, \
+            851118829, 4225766285, 963748226, 799549420, 1955032629, 799460000, 2425744063, \
+            2441291571, 1928963772, 528930629, 2591962884, 3495142819, 1896021824, 901320159, \
+            3181820243, 843061941, 3338628510, 3782438992, 9515330, 1705797226, 953535929, \
+            764833876, 3202464965, 2970244591, 519154982, 3390617541, 566616744, 3438031503, \
+            1853838297, 170608755, 1393728434, 676900116, 3184965776, 1843100290, 78995357, \
+            2227939888, 3460264600, 1745705055, 1474086965, 572796246, 4081303004, 882828851, \
+            1295445825, 137639900, 3304579600, 2722437017, 4093422709, 273203373, 2666507854, \
+            3998836510, 493829981, 1623949669, 3482036755, 3390023939, 833233937, 1639668730, \
+            1499455075, 249728260, 1210694006, 3836497489, 1551488720, 3253074267, 3388238003, \
+            2372035079, 3945715164, 2029501215, 3362012634, 2007375355, 4074709820, 631485888, \
+            3135015769, 4273087084, 3648076204, 2739943601, 1374020358, 1760722448, 3773939706, \
+            1313027823, 1895251226, 4224465911, 421382535, 1141067370, 3660034846, 3393185650, \
+            1850995280, 1451917312, 3841455409, 3926840308, 1397397252, 2572864479, 2500171350, \
+            3119920613, 531400869, 1626487579, 1099320497, 407414753, 2438623324, 99073255, \
+            3175491512, 656431560, 1153671785, 236307875, 2824738046, 2320621382, 892174056, \
+            230984053, 719791226, 2718891946, 624), None)
+        self.random = random.Random()
+        self.random.setstate(fixedState)
+
+"""
+ Data structures useful for implementing SearchAgents
+"""
+
+class Stack:
+    "A container with a last-in-first-out (LIFO) queuing policy."
+    def __init__(self):
+        self.list = []
+
+    def push(self,item):
+        "Push 'item' onto the stack"
+        self.list.append(item)
+
+    def pop(self):
+        "Pop the most recently pushed item from the stack"
+        return self.list.pop()
+
+    def isEmpty(self):
+        "Returns true if the stack is empty"
+        return len(self.list) == 0
+
+class Queue:
+    "A container with a first-in-first-out (FIFO) queuing policy."
+    def __init__(self):
+        self.list = []
+
+    def push(self,item):
+        "Enqueue the 'item' into the queue"
+        self.list.insert(0,item)
+
+    def pop(self):
+        """
+          Dequeue the earliest enqueued item still in the queue. This
+          operation removes the item from the queue.
+        """
+        return self.list.pop()
+
+    def isEmpty(self):
+        "Returns true if the queue is empty"
+        return len(self.list) == 0
+
+class PriorityQueue:
+    """
+      Implements a priority queue data structure. Each inserted item
+      has a priority associated with it and the client is usually interested
+      in quick retrieval of the lowest-priority item in the queue. This
+      data structure allows O(1) access to the lowest-priority item.
+    """
+    def  __init__(self):
+        self.heap = []
+        self.count = 0
+
+    def push(self, item, priority):
+        entry = (priority, self.count, item)
+        heapq.heappush(self.heap, entry)
+        self.count += 1
+
+    def pop(self):
+        (_, _, item) = heapq.heappop(self.heap)
+        return item
+
+    def isEmpty(self):
+        return len(self.heap) == 0
+
+    def update(self, item, priority):
+        # If item already in priority queue with higher priority, update its priority and rebuild the heap.
+        # If item already in priority queue with equal or lower priority, do nothing.
+        # If item not in priority queue, do the same thing as self.push.
+        for index, (p, c, i) in enumerate(self.heap):
+            if i == item:
+                if p <= priority:
+                    break
+                del self.heap[index]
+                self.heap.append((priority, c, item))
+                heapq.heapify(self.heap)
+                break
+        else:
+            self.push(item, priority)
+
+class PriorityQueueWithFunction(PriorityQueue):
+    """
+    Implements a priority queue with the same push/pop signature of the
+    Queue and the Stack classes. This is designed for drop-in replacement for
+    those two classes. The caller has to provide a priority function, which
+    extracts each item's priority.
+    """
+    def  __init__(self, priorityFunction):
+        "priorityFunction (item) -> priority"
+        self.priorityFunction = priorityFunction      # store the priority function
+        PriorityQueue.__init__(self)        # super-class initializer
+
+    def push(self, item):
+        "Adds an item to the queue with priority from the priority function"
+        PriorityQueue.push(self, item, self.priorityFunction(item))
+
+
+def manhattanDistance( xy1, xy2 ):
+    "Returns the Manhattan distance between points xy1 and xy2"
+    return abs( xy1[0] - xy2[0] ) + abs( xy1[1] - xy2[1] )
+
+"""
+  Data structures and functions useful for various course projects
+
+  The search project should not need anything below this line.
+"""
+
+class Counter(dict):
+    """
+    A counter keeps track of counts for a set of keys.
+
+    The counter class is an extension of the standard python
+    dictionary type.  It is specialized to have number values
+    (integers or floats), and includes a handful of additional
+    functions to ease the task of counting data.  In particular,
+    all keys are defaulted to have value 0.  Using a dictionary:
+
+    a = {}
+    print(a['test'])
+
+    would give an error, while the Counter class analogue:
+
+    >>> a = Counter()
+    >>> print(a['test'])
+    0
+
+    returns the default 0 value. Note that to reference a key
+    that you know is contained in the counter,
+    you can still use the dictionary syntax:
+
+    >>> a = Counter()
+    >>> a['test'] = 2
+    >>> print(a['test'])
+    2
+
+    This is very useful for counting things without initializing their counts,
+    see for example:
+
+    >>> a['blah'] += 1
+    >>> print(a['blah'])
+    1
+
+    The counter also includes additional functionality useful in implementing
+    the classifiers for this assignment.  Two counters can be added,
+    subtracted or multiplied together.  See below for details.  They can
+    also be normalized and their total count and arg max can be extracted.
+    """
+    def __getitem__(self, idx):
+        self.setdefault(idx, 0)
+        return dict.__getitem__(self, idx)
+
+    def incrementAll(self, keys, count):
+        """
+        Increments all elements of keys by the same count.
+
+        >>> a = Counter()
+        >>> a.incrementAll(['one','two', 'three'], 1)
+        >>> a['one']
+        1
+        >>> a['two']
+        1
+        """
+        for key in keys:
+            self[key] += count
+
+    def argMax(self):
+        """
+        Returns the key with the highest value.
+        """
+        if len(self.keys()) == 0: return None
+        all = self.items()
+        values = [x[1] for x in all]
+        maxIndex = values.index(max(values))
+        return all[maxIndex][0]
+
+    def sortedKeys(self):
+        """
+        Returns a list of keys sorted by their values.  Keys
+        with the highest values will appear first.
+
+        >>> a = Counter()
+        >>> a['first'] = -2
+        >>> a['second'] = 4
+        >>> a['third'] = 1
+        >>> a.sortedKeys()
+        ['second', 'third', 'first']
+        """
+        sortedItems = self.items()
+        compare = lambda x, y:  sign(y[1] - x[1])
+        sortedItems.sort(cmp=compare)
+        return [x[0] for x in sortedItems]
+
+    def totalCount(self):
+        """
+        Returns the sum of counts for all keys.
+        """
+        return sum(self.values())
+
+    def normalize(self):
+        """
+        Edits the counter such that the total count of all
+        keys sums to 1.  The ratio of counts for all keys
+        will remain the same. Note that normalizing an empty
+        Counter will result in an error.
+        """
+        total = float(self.totalCount())
+        if total == 0: return
+        for key in self.keys():
+            self[key] = self[key] / total
+
+    def divideAll(self, divisor):
+        """
+        Divides all counts by divisor
+        """
+        divisor = float(divisor)
+        for key in self:
+            self[key] /= divisor
+
+    def copy(self):
+        """
+        Returns a copy of the counter
+        """
+        return Counter(dict.copy(self))
+
+    def __mul__(self, y ):
+        """
+        Multiplying two counters gives the dot product of their vectors where
+        each unique label is a vector element.
+
+        >>> a = Counter()
+        >>> b = Counter()
+        >>> a['first'] = -2
+        >>> a['second'] = 4
+        >>> b['first'] = 3
+        >>> b['second'] = 5
+        >>> a['third'] = 1.5
+        >>> a['fourth'] = 2.5
+        >>> a * b
+        14
+        """
+        sum = 0
+        x = self
+        if len(x) > len(y):
+            x,y = y,x
+        for key in x:
+            if key not in y:
+                continue
+            sum += x[key] * y[key]
+        return sum
+
+    def __radd__(self, y):
+        """
+        Adding another counter to a counter increments the current counter
+        by the values stored in the second counter.
+
+        >>> a = Counter()
+        >>> b = Counter()
+        >>> a['first'] = -2
+        >>> a['second'] = 4
+        >>> b['first'] = 3
+        >>> b['third'] = 1
+        >>> a += b
+        >>> a['first']
+        1
+        """
+        for key, value in y.items():
+            self[key] += value
+
+    def __add__( self, y ):
+        """
+        Adding two counters gives a counter with the union of all keys and
+        counts of the second added to counts of the first.
+
+        >>> a = Counter()
+        >>> b = Counter()
+        >>> a['first'] = -2
+        >>> a['second'] = 4
+        >>> b['first'] = 3
+        >>> b['third'] = 1
+        >>> (a + b)['first']
+        1
+        """
+        addend = Counter()
+        for key in self:
+            if key in y:
+                addend[key] = self[key] + y[key]
+            else:
+                addend[key] = self[key]
+        for key in y:
+            if key in self:
+                continue
+            addend[key] = y[key]
+        return addend
+
+    def __sub__( self, y ):
+        """
+        Subtracting a counter from another gives a counter with the union of all keys and
+        counts of the second subtracted from counts of the first.
+
+        >>> a = Counter()
+        >>> b = Counter()
+        >>> a['first'] = -2
+        >>> a['second'] = 4
+        >>> b['first'] = 3
+        >>> b['third'] = 1
+        >>> (a - b)['first']
+        -5
+        """
+        addend = Counter()
+        for key in self:
+            if key in y:
+                addend[key] = self[key] - y[key]
+            else:
+                addend[key] = self[key]
+        for key in y:
+            if key in self:
+                continue
+            addend[key] = -1 * y[key]
+        return addend
+
+def raiseNotDefined():
+    fileName = inspect.stack()[1][1]
+    line = inspect.stack()[1][2]
+    method = inspect.stack()[1][3]
+
+    print("*** Method not implemented: %s at line %s of %s" % (method, line, fileName))
+    sys.exit(1)
+
+def normalize(vectorOrCounter):
+    """
+    normalize a vector or counter by dividing each value by the sum of all values
+    """
+    normalizedCounter = Counter()
+    if type(vectorOrCounter) == type(normalizedCounter):
+        counter = vectorOrCounter
+        total = float(counter.totalCount())
+        if total == 0: return counter
+        for key in counter.keys():
+            value = counter[key]
+            normalizedCounter[key] = value / total
+        return normalizedCounter
+    else:
+        vector = vectorOrCounter
+        s = float(sum(vector))
+        if s == 0: return vector
+        return [el / s for el in vector]
+
+def nSample(distribution, values, n):
+    if sum(distribution) != 1:
+        distribution = normalize(distribution)
+    rand = [random.random() for i in range(n)]
+    rand.sort()
+    samples = []
+    samplePos, distPos, cdf = 0,0, distribution[0]
+    while samplePos < n:
+        if rand[samplePos] < cdf:
+            samplePos += 1
+            samples.append(values[distPos])
+        else:
+            distPos += 1
+            cdf += distribution[distPos]
+    return samples
+
+def sample(distribution, values = None):
+    if type(distribution) == Counter:
+        items = sorted(distribution.items())
+        distribution = [i[1] for i in items]
+        values = [i[0] for i in items]
+    if sum(distribution) != 1:
+        distribution = normalize(distribution)
+    choice = random.random()
+    i, total= 0, distribution[0]
+    while choice > total:
+        i += 1
+        total += distribution[i]
+    return values[i]
+
+def sampleFromCounter(ctr):
+    items = sorted(ctr.items())
+    return sample([v for k,v in items], [k for k,v in items])
+
+def getProbability(value, distribution, values):
+    """
+      Gives the probability of a value under a discrete distribution
+      defined by (distributions, values).
+    """
+    total = 0.0
+    for prob, val in zip(distribution, values):
+        if val == value:
+            total += prob
+    return total
+
+def flipCoin( p ):
+    r = random.random()
+    return r < p
+
+def chooseFromDistribution( distribution ):
+    "Takes either a counter or a list of (prob, key) pairs and samples"
+    if type(distribution) == dict or type(distribution) == Counter:
+        return sample(distribution)
+    r = random.random()
+    base = 0.0
+    for prob, element in distribution:
+        base += prob
+        if r <= base: return element
+
+def nearestPoint( pos ):
+    """
+    Finds the nearest grid point to a position (discretizes).
+    """
+    ( current_row, current_col ) = pos
+
+    grid_row = int( current_row + 0.5 )
+    grid_col = int( current_col + 0.5 )
+    return ( grid_row, grid_col )
+
+def sign( x ):
+    """
+    Returns 1 or -1 depending on the sign of x
+    """
+    if( x >= 0 ):
+        return 1
+    else:
+        return -1
+
+def arrayInvert(array):
+    """
+    Inverts a matrix stored as a list of lists.
+    """
+    result = [[] for i in array]
+    for outer in array:
+        for inner in range(len(outer)):
+            result[inner].append(outer[inner])
+    return result
+
+def matrixAsList( matrix, value = True ):
+    """
+    Turns a matrix into a list of coordinates matching the specified value
+    """
+    rows, cols = len( matrix ), len( matrix[0] )
+    cells = []
+    for row in range( rows ):
+        for col in range( cols ):
+            if matrix[row][col] == value:
+                cells.append( ( row, col ) )
+    return cells
+
+def lookup(name, namespace):
+    """
+    Get a method or class from any imported module from its name.
+    Usage: lookup(functionName, globals())
+    """
+    dots = name.count('.')
+    if dots > 0:
+        moduleName, objName = '.'.join(name.split('.')[:-1]), name.split('.')[-1]
+        module = __import__(moduleName)
+        return getattr(module, objName)
+    else:
+        modules = [obj for obj in namespace.values() if str(type(obj)) == "<type 'module'>"]
+        options = [getattr(module, name) for module in modules if name in dir(module)]
+        options += [obj[1] for obj in namespace.items() if obj[0] == name ]
+        if len(options) == 1: return options[0]
+        if len(options) > 1: raise Exception('Name conflict for %s')
+        raise Exception('%s not found as a method or class' % name)
+
+def pause():
+    """
+    Pauses the output stream awaiting user feedback.
+    """
+    input("<Press enter/return to continue>")
+
+
+# code to handle timeouts
+#
+# FIXME
+# NOTE: TimeoutFuncton is NOT reentrant.  Later timeouts will silently
+# disable earlier timeouts.  Could be solved by maintaining a global list
+# of active time outs.  Currently, questions which have test cases calling
+# this have all student code so wrapped.
+#
+import signal
+import time
+class TimeoutFunctionException(Exception):
+    """Exception to raise on a timeout"""
+    pass
+
+
+class TimeoutFunction:
+    def __init__(self, function, timeout):
+        self.timeout = timeout
+        self.function = function
+
+    def handle_timeout(self, signum, frame):
+        raise TimeoutFunctionException()
+
+    def __call__(self, *args, **keyArgs):
+        # If we have SIGALRM signal, use it to cause an exception if and
+        # when this function runs too long.  Otherwise check the time taken
+        # after the method has returned, and throw an exception then.
+        if hasattr(signal, 'SIGALRM'):
+            old = signal.signal(signal.SIGALRM, self.handle_timeout)
+            signal.alarm(self.timeout)
+            try:
+                result = self.function(*args, **keyArgs)
+            finally:
+                signal.signal(signal.SIGALRM, old)
+            signal.alarm(0)
+        else:
+            startTime = time.time()
+            result = self.function(*args, **keyArgs)
+            timeElapsed = time.time() - startTime
+            if timeElapsed >= self.timeout:
+                self.handle_timeout(None, None)
+        return result
+
+
+
+_ORIGINAL_STDOUT = None
+_ORIGINAL_STDERR = None
+_MUTED = False
+
+class WritableNull:
+    def write(self, string):
+        pass
+
+def mutePrint():
+    global _ORIGINAL_STDOUT, _ORIGINAL_STDERR, _MUTED
+    if _MUTED:
+        return
+    _MUTED = True
+
+    _ORIGINAL_STDOUT = sys.stdout
+    #_ORIGINAL_STDERR = sys.stderr
+    sys.stdout = WritableNull()
+    #sys.stderr = WritableNull()
+
+def unmutePrint():
+    global _ORIGINAL_STDOUT, _ORIGINAL_STDERR, _MUTED
+    if not _MUTED:
+        return
+    _MUTED = False
+
+    sys.stdout = _ORIGINAL_STDOUT
+    #sys.stderr = _ORIGINAL_STDERR
+
+
+

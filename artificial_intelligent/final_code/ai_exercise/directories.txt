@@ -1,0 +1,11 @@
+ai_exercise1_a_star.py
+ai_exercise1_dfs.py
+ai_exercise1_dfs_tree.py
+ai_exercise1_ucs.py
+ai_exercise2_bayesian_network.py
+ai_exercise2_variable_elimination.py
+ai_exercise_3.py
+ai_exercise_4.py
+ai_exercise_5.py
+ai_exercise_6_final.py
+data.py

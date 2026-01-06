@@ -1,0 +1,1937 @@
+# graphicsUtils.py
+# graphicsUtils.py
+# ----------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+import sys
+import math
+import random
+import string
+import time
+import types
+import tkinter
+
+_Windows = sys.platform == 'win32'  # True if on Win95/98/NT
+
+_root_window = None      # The root window for graphics output
+_canvas = None      # The canvas which holds graphics
+_canvas_xs = None      # Size of canvas object
+_canvas_ys = None
+_canvas_x = None      # Current position on canvas
+_canvas_y = None
+_canvas_col = None      # Current colour (set to black below)
+_canvas_tsize = 12
+_canvas_tserifs = 0
+
+def formatColor(r, g, b):
+    return '#%02x%02x%02x' % (int(r * 255), int(g * 255), int(b * 255))
+
+def colorToVector(color):
+    return list(map(lambda x: int(x, 16) / 256.0, [color[1:3], color[3:5], color[5:7]]))
+
+if _Windows:
+    _canvas_tfonts = ['times new roman', 'lucida console']
+else:
+    _canvas_tfonts = ['times', 'lucidasans-24']
+    pass # XXX need defaults here
+
+def sleep(secs):
+    global _root_window
+    if _root_window == None:
+        time.sleep(secs)
+    else:
+        _root_window.update_idletasks()
+        _root_window.after(int(1000 * secs), _root_window.quit)
+        _root_window.mainloop()
+
+def begin_graphics(width=640, height=480, color=formatColor(0, 0, 0), title=None):
+
+    global _root_window, _canvas, _canvas_x, _canvas_y, _canvas_xs, _canvas_ys, _bg_color
+
+    # Check for duplicate call
+    if _root_window is not None:
+        # Lose the window.
+        _root_window.destroy()
+
+    # Save the canvas size parameters
+    _canvas_xs, _canvas_ys = width - 1, height - 1
+    _canvas_x, _canvas_y = 0, _canvas_ys
+    _bg_color = color
+
+    # Create the root window
+    _root_window = tkinter.Tk()
+    _root_window.protocol('WM_DELETE_WINDOW', _destroy_window)
+    _root_window.title(title or 'Graphics Window')
+    _root_window.resizable(0, 0)
+
+    # Create the canvas object
+    try:
+        _canvas = tkinter.Canvas(_root_window, width=width, height=height)
+        _canvas.pack()
+        draw_background()
+        _canvas.update()
+    except:
+        _root_window = None
+        raise
+
+    # Bind to key-down and key-up events
+    _root_window.bind( "<KeyPress>", _keypress )
+    _root_window.bind( "<KeyRelease>", _keyrelease )
+    _root_window.bind( "<FocusIn>", _clear_keys )
+    _root_window.bind( "<FocusOut>", _clear_keys )
+    _root_window.bind( "<Button-1>", _leftclick )
+    _root_window.bind( "<Button-2>", _rightclick )
+    _root_window.bind( "<Button-3>", _rightclick )
+    _root_window.bind( "<Control-Button-1>", _ctrl_leftclick)
+    _clear_keys()
+
+_leftclick_loc = None
+_rightclick_loc = None
+_ctrl_leftclick_loc = None
+
+def _leftclick(event):
+    global _leftclick_loc
+    _leftclick_loc = (event.x, event.y)
+
+def _rightclick(event):
+    global _rightclick_loc
+    _rightclick_loc = (event.x, event.y)
+
+def _ctrl_leftclick(event):
+    global _ctrl_leftclick_loc
+    _ctrl_leftclick_loc = (event.x, event.y)
+
+def wait_for_click():
+    while True:
+        global _leftclick_loc
+        global _rightclick_loc
+        global _ctrl_leftclick_loc
+        if _leftclick_loc != None:
+            val = _leftclick_loc
+            _leftclick_loc = None
+            return val, 'left'
+        if _rightclick_loc != None:
+            val = _rightclick_loc
+            _rightclick_loc = None
+            return val, 'right'
+        if _ctrl_leftclick_loc != None:
+            val = _ctrl_leftclick_loc
+            _ctrl_leftclick_loc = None
+            return val, 'ctrl_left'
+        sleep(0.05)
+
+def draw_background():
+    corners = [(0,0), (0, _canvas_ys), (_canvas_xs, _canvas_ys), (_canvas_xs, 0)]
+    polygon(corners, _bg_color, fillColor=_bg_color, filled=True, smoothed=False)
+
+def _destroy_window(event=None):
+    sys.exit(0)
+#    global _root_window
+#    _root_window.destroy()
+#    _root_window = None
+    #print("DESTROY")
+
+def end_graphics():
+    global _root_window, _canvas, _mouse_enabled
+    try:
+        try:
+            sleep(1)
+            if _root_window != None:
+                _root_window.destroy()
+        except SystemExit as e:
+            print('Ending graphics raised an exception:', e)
+    finally:
+        _root_window = None
+        _canvas = None
+        _mouse_enabled = 0
+        _clear_keys()
+
+def clear_screen(background=None):
+    global _canvas_x, _canvas_y
+    _canvas.delete('all')
+    draw_background()
+    _canvas_x, _canvas_y = 0, _canvas_ys
+
+def polygon(coords, outlineColor, fillColor=None, filled=1, smoothed=1, behind=0, width=1):
+    c = []
+    for coord in coords:
+        c.append(coord[0])
+        c.append(coord[1])
+    if fillColor == None: fillColor = outlineColor
+    if filled == 0: fillColor = ""
+    poly = _canvas.create_polygon(c, outline=outlineColor, fill=fillColor, smooth=smoothed, width=width)
+    if behind > 0:
+        _canvas.tag_lower(poly, behind) # Higher should be more visible
+    return poly
+
+def square(pos, r, color, filled=1, behind=0):
+    x, y = pos
+    coords = [(x - r, y - r), (x + r, y - r), (x + r, y + r), (x - r, y + r)]
+    return polygon(coords, color, color, filled, 0, behind=behind)
+
+def circle(pos, r, outlineColor, fillColor, endpoints=None, style='pieslice', width=2):
+    x, y = pos
+    x0, x1 = x - r - 1, x + r
+    y0, y1 = y - r - 1, y + r
+    if endpoints == None:
+        e = [0, 359]
+    else:
+        e = list(endpoints)
+    while e[0] > e[1]: e[1] = e[1] + 360
+
+    return _canvas.create_arc(x0, y0, x1, y1, outline=outlineColor, fill=fillColor,
+                              extent=e[1] - e[0], start=e[0], style=style, width=width)
+
+def image(pos, file="../../blueghost.gif"):
+    x, y = pos
+    # img = PhotoImage(file=file)
+    return _canvas.create_image(x, y, image = tkinter.PhotoImage(file=file), anchor = tkinter.NW)
+
+
+def refresh():
+    _canvas.update_idletasks()
+
+def moveCircle(id, pos, r, endpoints=None):
+    global _canvas_x, _canvas_y
+
+    x, y = pos
+#    x0, x1 = x - r, x + r + 1
+#    y0, y1 = y - r, y + r + 1
+    x0, x1 = x - r - 1, x + r
+    y0, y1 = y - r - 1, y + r
+    if endpoints == None:
+        e = [0, 359]
+    else:
+        e = list(endpoints)
+    while e[0] > e[1]: e[1] = e[1] + 360
+
+    edit(id, ('start', e[0]), ('extent', e[1] - e[0]))
+    move_to(id, x0, y0)
+
+def edit(id, *args):
+    _canvas.itemconfigure(id, **dict(args))
+
+def text(pos, color, contents, font='Helvetica', size=12, style='normal', anchor="nw"):
+    global _canvas_x, _canvas_y
+    x, y = pos
+    font = (font, str(size), style)
+    return _canvas.create_text(x, y, fill=color, text=contents, font=font, anchor=anchor)
+
+def changeText(id, newText, font=None, size=12, style='normal'):
+    _canvas.itemconfigure(id, text=newText)
+    if font != None:
+        _canvas.itemconfigure(id, font=(font, '-%d' % size, style))
+
+def changeColor(id, newColor):
+    _canvas.itemconfigure(id, fill=newColor)
+
+def line(here, there, color=formatColor(0, 0, 0), width=2):
+    x0, y0 = here[0], here[1]
+    x1, y1 = there[0], there[1]
+    return _canvas.create_line(x0, y0, x1, y1, fill=color, width=width)
+
+##############################################################################
+### Keypress handling ########################################################
+##############################################################################
+
+# We bind to key-down and key-up events.
+
+_keysdown = {}
+_keyswaiting = {}
+# This holds an unprocessed key release.  We delay key releases by up to
+# one call to keys_pressed() to get round a problem with auto repeat.
+_got_release = None
+
+def _keypress(event):
+    global _got_release
+    #remap_arrows(event)
+    _keysdown[event.keysym] = 1
+    _keyswaiting[event.keysym] = 1
+#    print(event.char, event.keycode)
+    _got_release = None
+
+def _keyrelease(event):
+    global _got_release
+    #remap_arrows(event)
+    try:
+        del _keysdown[event.keysym]
+    except:
+        pass
+    _got_release = 1
+
+def remap_arrows(event):
+    # TURN ARROW PRESSES INTO LETTERS (SHOULD BE IN KEYBOARD AGENT)
+    if event.char in ['a', 's', 'd', 'w']:
+        return
+    if event.keycode in [37, 101]: # LEFT ARROW (win / x)
+        event.char = 'a'
+    if event.keycode in [38, 99]: # UP ARROW
+        event.char = 'w'
+    if event.keycode in [39, 102]: # RIGHT ARROW
+        event.char = 'd'
+    if event.keycode in [40, 104]: # DOWN ARROW
+        event.char = 's'
+
+def _clear_keys(event=None):
+    global _keysdown, _got_release, _keyswaiting
+    _keysdown = {}
+    _keyswaiting = {}
+    _got_release = None
+
+def keys_pressed(d_o_e=lambda arg: _root_window.dooneevent(arg),
+                 d_w=tkinter._tkinter.DONT_WAIT):
+    d_o_e(d_w)
+    if _got_release:
+        d_o_e(d_w)
+    return _keysdown.keys()
+
+def keys_waiting():
+    global _keyswaiting
+    keys = _keyswaiting.keys()
+    _keyswaiting = {}
+    return keys
+
+# Block for a list of keys...
+
+def wait_for_keys():
+    keys = []
+    while keys == []:
+        keys = keys_pressed()
+        sleep(0.05)
+    return keys
+
+def remove_from_screen(x,
+                       d_o_e=lambda arg: _root_window.dooneevent(arg),
+                       d_w=tkinter._tkinter.DONT_WAIT):
+    _canvas.delete(x)
+    d_o_e(d_w)
+
+def _adjust_coords(coord_list, x, y):
+    for i in range(0, len(coord_list), 2):
+        coord_list[i] = coord_list[i] + x
+        coord_list[i + 1] = coord_list[i + 1] + y
+    return coord_list
+
+def move_to(object, x, y=None,
+            d_o_e=lambda arg: _root_window.dooneevent(arg),
+            d_w=tkinter._tkinter.DONT_WAIT):
+    if y is None:
+        try: x, y = x
+        except: raise Exception('incomprehensible coordinates')
+
+    horiz = True
+    newCoords = []
+    current_x, current_y = _canvas.coords(object)[0:2] # first point
+    for coord in  _canvas.coords(object):
+        if horiz:
+            inc = x - current_x
+        else:
+            inc = y - current_y
+        horiz = not horiz
+
+        newCoords.append(coord + inc)
+
+    _canvas.coords(object, *newCoords)
+    d_o_e(d_w)
+
+def move_by(object, x, y=None,
+            d_o_e=lambda arg: _root_window.dooneevent(arg),
+            d_w=tkinter._tkinter.DONT_WAIT, lift=False):
+    if y is None:
+        try: x, y = x
+        except: raise Exception('incomprehensible coordinates')
+
+    horiz = True
+    newCoords = []
+    for coord in  _canvas.coords(object):
+        if horiz:
+            inc = x
+        else:
+            inc = y
+        horiz = not horiz
+
+        newCoords.append(coord + inc)
+
+    _canvas.coords(object, *newCoords)
+    d_o_e(d_w)
+    if lift:
+        _canvas.tag_raise(object)
+
+def writePostscript(filename):
+    "Writes the current canvas to a postscript file."
+    psfile = open(filename, 'w')
+    psfile.write(_canvas.postscript(pageanchor='sw',
+                     y='0.c',
+                     x='0.c'))
+    psfile.close()
+
+ghost_shape = [
+    (0, - 0.5),
+    (0.25, - 0.75),
+    (0.5, - 0.5),
+    (0.75, - 0.75),
+    (0.75, 0.5),
+    (0.5, 0.75),
+    (- 0.5, 0.75),
+    (- 0.75, 0.5),
+    (- 0.75, - 0.75),
+    (- 0.5, - 0.5),
+    (- 0.25, - 0.75)
+  ]
+
+if __name__ == '__main__':
+    begin_graphics()
+    clear_screen()
+    ghost_shape = [(x * 10 + 20, y * 10 + 20) for x, y in ghost_shape]
+    g = polygon(ghost_shape, formatColor(1, 1, 1))
+    move_to(g, (50, 50))
+    circle((150, 150), 20, formatColor(0.7, 0.3, 0.0), endpoints=[15, - 15])
+    sleep(2)
+
+
+# keyboardAgents.py
+# keyboardAgents.py
+# -----------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+from game import Agent
+from game import Directions
+import random
+
+class KeyboardAgent(Agent):
+    """
+    An agent controlled by the keyboard.
+    """
+    # NOTE: Arrow keys also work.
+    WEST_KEY  = 'a'
+    EAST_KEY  = 'd'
+    NORTH_KEY = 'w'
+    SOUTH_KEY = 's'
+    STOP_KEY = 'q'
+
+    def __init__( self, index = 0 ):
+
+        self.lastMove = Directions.STOP
+        self.index = index
+        self.keys = []
+
+    def getAction( self, state):
+        from graphicsUtils import keys_waiting
+        from graphicsUtils import keys_pressed
+        keys = keys_waiting() + keys_pressed()
+        if keys != []:
+            self.keys = keys
+
+        legal = state.getLegalActions(self.index)
+        move = self.getMove(legal)
+
+        if move == Directions.STOP:
+            # Try to move in the same direction as before
+            if self.lastMove in legal:
+                move = self.lastMove
+
+        if (self.STOP_KEY in self.keys) and Directions.STOP in legal: move = Directions.STOP
+
+        if move not in legal:
+            move = random.choice(legal)
+
+        self.lastMove = move
+        return move
+
+    def getMove(self, legal):
+        move = Directions.STOP
+        if   (self.WEST_KEY in self.keys or 'Left' in self.keys) and Directions.WEST in legal:  move = Directions.WEST
+        if   (self.EAST_KEY in self.keys or 'Right' in self.keys) and Directions.EAST in legal: move = Directions.EAST
+        if   (self.NORTH_KEY in self.keys or 'Up' in self.keys) and Directions.NORTH in legal:   move = Directions.NORTH
+        if   (self.SOUTH_KEY in self.keys or 'Down' in self.keys) and Directions.SOUTH in legal: move = Directions.SOUTH
+        return move
+
+class KeyboardAgent2(KeyboardAgent):
+    """
+    A second agent controlled by the keyboard.
+    """
+    # NOTE: Arrow keys also work.
+    WEST_KEY  = 'j'
+    EAST_KEY  = "l"
+    NORTH_KEY = 'i'
+    SOUTH_KEY = 'k'
+    STOP_KEY = 'u'
+
+    def getMove(self, legal):
+        move = Directions.STOP
+        if   (self.WEST_KEY in self.keys) and Directions.WEST in legal:  move = Directions.WEST
+        if   (self.EAST_KEY in self.keys) and Directions.EAST in legal: move = Directions.EAST
+        if   (self.NORTH_KEY in self.keys) and Directions.NORTH in legal:   move = Directions.NORTH
+        if   (self.SOUTH_KEY in self.keys) and Directions.SOUTH in legal: move = Directions.SOUTH
+        return move
+
+
+# layout.py
+# layout.py
+# ---------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+from util import manhattanDistance
+from game import Grid
+import os
+import random
+
+VISIBILITY_MATRIX_CACHE = {}
+
+class Layout:
+    """
+    A Layout manages the static information about the game board.
+    """
+
+    def __init__(self, layoutText):
+        self.width = len(layoutText[0])
+        self.height= len(layoutText)
+        self.walls = Grid(self.width, self.height, False)
+        self.food = Grid(self.width, self.height, False)
+        self.capsules = []
+        self.agentPositions = []
+        self.numGhosts = 0
+        self.processLayoutText(layoutText)
+        self.layoutText = layoutText
+        self.totalFood = len(self.food.asList())
+        # self.initializeVisibilityMatrix()
+
+    def getNumGhosts(self):
+        return self.numGhosts
+
+    def initializeVisibilityMatrix(self):
+        global VISIBILITY_MATRIX_CACHE
+        if reduce(str.__add__, self.layoutText) not in VISIBILITY_MATRIX_CACHE:
+            from game import Directions
+            vecs = [(-0.5,0), (0.5,0),(0,-0.5),(0,0.5)]
+            dirs = [Directions.NORTH, Directions.SOUTH, Directions.WEST, Directions.EAST]
+            vis = Grid(self.width, self.height, {Directions.NORTH:set(), Directions.SOUTH:set(), Directions.EAST:set(), Directions.WEST:set(), Directions.STOP:set()})
+            for x in range(self.width):
+                for y in range(self.height):
+                    if self.walls[x][y] == False:
+                        for vec, direction in zip(vecs, dirs):
+                            dx, dy = vec
+                            nextx, nexty = x + dx, y + dy
+                            while (nextx + nexty) != int(nextx) + int(nexty) or not self.walls[int(nextx)][int(nexty)] :
+                                vis[x][y][direction].add((nextx, nexty))
+                                nextx, nexty = x + dx, y + dy
+            self.visibility = vis
+            VISIBILITY_MATRIX_CACHE[reduce(str.__add__, self.layoutText)] = vis
+        else:
+            self.visibility = VISIBILITY_MATRIX_CACHE[reduce(str.__add__, self.layoutText)]
+
+    def isWall(self, pos):
+        x, col = pos
+        return self.walls[x][col]
+
+    def getRandomLegalPosition(self):
+        x = random.choice(range(self.width))
+        y = random.choice(range(self.height))
+        while self.isWall( (x, y) ):
+            x = random.choice(range(self.width))
+            y = random.choice(range(self.height))
+        return (x,y)
+
+    def getRandomCorner(self):
+        poses = [(1,1), (1, self.height - 2), (self.width - 2, 1), (self.width - 2, self.height - 2)]
+        return random.choice(poses)
+
+    def getFurthestCorner(self, pacPos):
+        poses = [(1,1), (1, self.height - 2), (self.width - 2, 1), (self.width - 2, self.height - 2)]
+        dist, pos = max([(manhattanDistance(p, pacPos), p) for p in poses])
+        return pos
+
+    def isVisibleFrom(self, ghostPos, pacPos, pacDirection):
+        row, col = [int(x) for x in pacPos]
+        return ghostPos in self.visibility[row][col][pacDirection]
+
+    def __str__(self):
+        return "\n".join(self.layoutText)
+
+    def deepCopy(self):
+        return Layout(self.layoutText[:])
+
+    def processLayoutText(self, layoutText):
+        """
+        Coordinates are flipped from the input format to the (x,y) convention here
+
+        The shape of the maze.  Each character
+        represents a different type of object.
+         % - Wall
+         . - Food
+         o - Capsule
+         G - Ghost
+         P - Pacman
+        Other characters are ignored.
+        """
+        maxY = self.height - 1
+        for y in range(self.height):
+            for x in range(self.width):
+                layoutChar = layoutText[maxY - y][x]
+                self.processLayoutChar(x, y, layoutChar)
+        self.agentPositions.sort()
+        self.agentPositions = [ ( i == 0, pos) for i, pos in self.agentPositions]
+
+    def processLayoutChar(self, x, y, layoutChar):
+        if layoutChar == '%':
+            self.walls[x][y] = True
+        elif layoutChar == '.':
+            self.food[x][y] = True
+        elif layoutChar == 'o':
+            self.capsules.append((x, y))
+        elif layoutChar == 'P':
+            self.agentPositions.append( (0, (x, y) ) )
+        elif layoutChar in ['G']:
+            self.agentPositions.append( (1, (x, y) ) )
+            self.numGhosts += 1
+        elif layoutChar in  ['1', '2', '3', '4']:
+            self.agentPositions.append( (int(layoutChar), (x,y)))
+            self.numGhosts += 1
+def getLayout(name, back = 2):
+    if name.endswith('.lay'):
+        layout = tryToLoad('layouts/' + name)
+        if layout == None: layout = tryToLoad(name)
+    else:
+        layout = tryToLoad('layouts/' + name + '.lay')
+        if layout == None: layout = tryToLoad(name + '.lay')
+    if layout == None and back >= 0:
+        curdir = os.path.abspath('.')
+        os.chdir('..')
+        layout = getLayout(name, back -1)
+        os.chdir(curdir)
+    return layout
+
+def tryToLoad(fullname):
+    if(not os.path.exists(fullname)): return None
+    f = open(fullname)
+    try: return Layout([line.strip() for line in f])
+    finally: f.close()
+
+
+# mira.py
+# mira.py
+# -------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+# Mira implementation
+import util
+PRINT = True
+
+class MiraClassifier:
+    """
+    Mira classifier.
+
+    Note that the variable 'datum' in this code refers to a counter of features
+    (not to a raw samples.Datum).
+    """
+    def __init__( self, legalLabels, max_iterations):
+        self.legalLabels = legalLabels
+        self.type = "mira"
+        self.automaticTuning = False
+        self.C = 0.001
+        self.legalLabels = legalLabels
+        self.max_iterations = max_iterations
+        self.initializeWeightsToZero()
+
+    def initializeWeightsToZero(self):
+        "Resets the weights of each label to zero vectors"
+        self.weights = {}
+        for label in self.legalLabels:
+            self.weights[label] = util.Counter() # this is the data-structure you should use
+
+    def train(self, trainingData, trainingLabels, validationData, validationLabels):
+        "Outside shell to call your method. Do not modify this method."
+
+        self.features = trainingData[0].keys() # this could be useful for your code later...
+
+        if (self.automaticTuning):
+            Cgrid = [0.002, 0.004, 0.008]
+        else:
+            Cgrid = [self.C]
+
+        return self.trainAndTune(trainingData, trainingLabels, validationData, validationLabels, Cgrid)
+
+    def trainAndTune(self, trainingData, trainingLabels, validationData, validationLabels, Cgrid):
+        """
+        This method sets self.weights using MIRA.  Train the classifier for each value of C in Cgrid,
+        then store the weights that give the best accuracy on the validationData.
+
+        Use the provided self.weights[label] data structure so that
+        the classify method works correctly. Also, recall that a
+        datum is a counter from features to values for those features
+        representing a vector of values.
+        """
+        "*** YOUR CODE HERE ***"
+        # util.raiseNotDefined()
+        best_weights = None
+        best_accuracy = 0
+        best_C = None
+
+        # Iterate over each C value in the grid
+        for C in Cgrid:
+            # Initialize weights for each C value
+            weights = {label: util.Counter() for label in self.legalLabels}
+
+            # Train for multiple iterations
+            for iteration in range(self.max_iterations):
+                print(f"Training with C={C}, Iteration {iteration}")
+                for i in range(len(trainingData)):
+                    datum = trainingData[i]
+                    true_label = trainingLabels[i]
+
+                    # Predict the label with highest score
+                    scores = {label: weights[label] * datum for label in self.legalLabels}
+                    predicted_label = max(scores, key=scores.get)
+
+                    if predicted_label != true_label:
+                        # Compute τ (step size)
+                        tau = min(
+                            C,
+                            (scores[predicted_label] - scores[true_label] + 1.0) / (2 * (datum * datum))
+                        )
+
+                        # Update the weight vectors
+                        feature_update = datum.copy()
+                        for key in feature_update:
+                            feature_update[key] *= tau
+
+                        weights[true_label] += feature_update
+                        weights[predicted_label] -= feature_update
+
+            # Validate the model on validation data
+            self.weights = weights
+            predictions = self.classify(validationData)
+            accuracy = sum(int(predictions[i] == validationLabels[i]) for i in range(len(validationLabels))) / len(validationLabels)
+
+            # Store best weights based on accuracy
+            if accuracy > best_accuracy or (accuracy == best_accuracy and C < best_C):
+                best_accuracy = accuracy
+                best_C = C
+                best_weights = weights.copy()
+
+        # Set the best found weights
+        self.weights = best_weights
+        print(f"Best C: {best_C} with accuracy: {best_accuracy}")
+
+    def classify(self, data ):
+        """
+        Classifies each datum as the label that most closely matches the prototype vector
+        for that label.  See the project description for details.
+
+        Recall that a datum is a util.counter...
+        """
+        guesses = []
+        for datum in data:
+            vectors = util.Counter()
+            for l in self.legalLabels:
+                vectors[l] = self.weights[l] * datum
+            guesses.append(vectors.argMax())
+        return guesses
+
+
+
+
+# mostFrequent.py
+# mostFrequent.py
+# ---------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+import util
+import classificationMethod
+
+class MostFrequentClassifier(classificationMethod.ClassificationMethod):
+    """
+    The MostFrequentClassifier is a very simple classifier: for
+    every test instance presented to it, the classifier returns
+    the label that was seen most often in the training data.
+    """
+    def __init__(self, legalLabels):
+        self.guess = None
+        self.type = "mostfrequent"
+
+    def train(self, data, labels, validationData, validationLabels):
+        """
+        Find the most common label in the training data.
+        """
+        counter = util.Counter()
+        counter.incrementAll(labels, 1)
+        self.guess = counter.argMax()
+
+    def classify(self, testData):
+        """
+        Classify all test data as the most common label.
+        """
+        return [self.guess for i in testData]
+
+
+# naiveBayes.py
+# naiveBayes.py
+# -------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+import util
+import classificationMethod
+import math
+
+class NaiveBayesClassifier(classificationMethod.ClassificationMethod):
+    """
+    See the project description for the specifications of the Naive Bayes classifier.
+
+    Note that the variable 'datum' in this code refers to a counter of features
+    (not to a raw samples.Datum).
+    """
+    def __init__(self, legalLabels):
+        self.legalLabels = legalLabels
+        self.type = "naivebayes"
+        self.k = 1 # this is the smoothing parameter, ** use it in your train method **
+        self.automaticTuning = False # Look at this flag to decide whether to choose k automatically ** use this in your train method **
+
+    def setSmoothing(self, k):
+        """
+        This is used by the main method to change the smoothing parameter before training.
+        Do not modify this method.
+        """
+        self.k = k
+
+    def train(self, trainingData, trainingLabels, validationData, validationLabels):
+        """
+        Outside shell to call your method. Do not modify this method.
+        """
+
+        # might be useful in your code later...
+        # this is a list of all features in the training set.
+        self.features = list(set([ f for datum in trainingData for f in datum.keys() ]));
+
+        if (self.automaticTuning):
+            kgrid = [0.001, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 20, 50]
+        else:
+            kgrid = [self.k]
+
+        self.trainAndTune(trainingData, trainingLabels, validationData, validationLabels, kgrid)
+
+    def trainAndTune(self, trainingData, trainingLabels, validationData, validationLabels, kgrid):
+        """
+        Trains the classifier by collecting counts over the training data, and
+        stores the Laplace smoothed estimates so that they can be used to classify.
+        Evaluate each value of k in kgrid to choose the smoothing parameter
+        that gives the best accuracy on the held-out validationData.
+
+        trainingData and validationData are lists of feature Counters.  The corresponding
+        label lists contain the correct label for each datum.
+
+        To get the list of all possible features or labels, use self.features and
+        self.legalLabels.
+        """
+
+        bestAccuracyCount = -1 # best accuracy so far on validation set
+
+        # Common training - get all counts from training data
+        # We only do it once - save computation in tuning smoothing parameter
+        commonPrior = util.Counter() # probability over labels
+        commonConditionalProb = util.Counter() # Conditional probability of feature feat being 1
+                                      # indexed by (feat, label)
+        commonCounts = util.Counter() # how many time I have seen feature feat with label y
+                                    # whatever inactive or active
+
+        for i in range(len(trainingData)):
+            datum = trainingData[i]
+            label = trainingLabels[i]
+            commonPrior[label] += 1
+            for feat, value in datum.items():
+                commonCounts[(feat,label)] += 1
+                if value > 0: # assume binary value
+                    commonConditionalProb[(feat, label)] += 1
+
+        for k in kgrid: # Smoothing parameter tuning loop!
+            prior = util.Counter()
+            conditionalProb = util.Counter()
+            counts = util.Counter()
+
+            # get counts from common training step
+            for key, val in commonPrior.items():
+                prior[key] += val
+            for key, val in commonCounts.items():
+                counts[key] += val
+            for key, val in commonConditionalProb.items():
+                conditionalProb[key] += val
+
+            # smoothing:
+            for label in self.legalLabels:
+                for feat in self.features:
+                    conditionalProb[ (feat, label)] +=  k
+                    counts[(feat, label)] +=  2*k # 2 because both value 0 and 1 are smoothed
+
+            # normalizing:
+            prior.normalize()
+            for x, count in conditionalProb.items():
+                conditionalProb[x] = count * 1.0 / counts[x]
+
+            self.prior = prior
+            self.conditionalProb = conditionalProb
+
+            # evaluating performance on validation set
+            predictions = self.classify(validationData)
+            accuracyCount =  [predictions[i] == validationLabels[i] for i in range(len(validationLabels))].count(True)
+
+            print("Performance on validation set for k=%f: (%.1f%%)" % (k, 100.0*accuracyCount/len(validationLabels)))
+            if accuracyCount > bestAccuracyCount:
+                bestParams = (prior, conditionalProb, k)
+                bestAccuracyCount = accuracyCount
+            # end of automatic tuning loop
+        self.prior, self.conditionalProb, self.k = bestParams
+
+    def classify(self, testData):
+        """
+        Classify the data based on the posterior distribution over labels.
+
+        You shouldn't modify this method.
+        """
+        guesses = []
+        self.posteriors = [] # Log posteriors are stored for later data analysis (autograder).
+        for datum in testData:
+            posterior = self.calculateLogJointProbabilities(datum)
+            guesses.append(posterior.argMax())
+            self.posteriors.append(posterior)
+        return guesses
+
+    def calculateLogJointProbabilities(self, datum):
+        """
+        Returns the log-joint distribution over legal labels and the datum.
+        Each log-probability should be stored in the log-joint counter, e.g.
+        logJoint[3] = <Estimate of log( P(Label = 3, datum) )>
+
+        To get the list of all possible features or labels, use self.features and
+        self.legalLabels.
+        """
+        logJoint = util.Counter()
+
+        for label in self.legalLabels:
+            logJoint[label] = math.log(self.prior[label])
+            for feat, value in datum.items():
+                if value > 0:
+                    logJoint[label] += math.log(self.conditionalProb[feat,label])
+                else:
+                    logJoint[label] += math.log(1-self.conditionalProb[feat,label])
+
+        return logJoint
+
+    def findHighOddsFeatures(self, label1, label2):
+        """
+        Returns the 100 best features for the odds ratio:
+                P(feature=1 | label1)/P(feature=1 | label2)
+
+        Note: you may find 'self.features' a useful way to loop through all possible features
+        """
+        featuresOdds = []
+
+        for feat in self.features:
+            featuresOdds.append((self.conditionalProb[feat, label1]/self.conditionalProb[feat, label2], feat))
+        featuresOdds.sort()
+        featuresOdds = [feat for val, feat in featuresOdds[-100:]]
+
+        return featuresOdds
+
+
+# pacman.py
+# pacman.py
+# ---------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+"""
+Pacman.py holds the logic for the classic pacman game along with the main
+code to run a game.  This file is divided into three sections:
+
+  (i)  Your interface to the pacman world:
+          Pacman is a complex environment.  You probably don't want to
+          read through all of the code we wrote to make the game runs
+          correctly.  This section contains the parts of the code
+          that you will need to understand in order to complete the
+          project.  There is also some code in game.py that you should
+          understand.
+
+  (ii)  The hidden secrets of pacman:
+          This section contains all of the logic code that the pacman
+          environment uses to decide who can move where, who dies when
+          things collide, etc.  You shouldn't need to read this section
+          of code, but you can if you want.
+
+  (iii) Framework to start a game:
+          The final section contains the code for reading the command
+          you use to set up the game, then starting up a new game, along with
+          linking in all the external parts (agent functions, graphics).
+          Check this section out to see all the options available to you.
+
+To play your first game, type 'python pacman.py' from the command line.
+The keys are 'a', 's', 'd', and 'w' to move (or arrow keys).  Have fun!
+"""
+from game import GameStateData
+from game import Game
+from game import Directions
+from game import Actions
+from util import nearestPoint
+from util import manhattanDistance
+import util, layout
+import sys, types, time, random, os
+
+###################################################
+# YOUR INTERFACE TO THE PACMAN WORLD: A GameState #
+###################################################
+
+class GameState:
+    """
+    A GameState specifies the full game state, including the food, capsules,
+    agent configurations and score changes.
+
+    GameStates are used by the Game object to capture the actual state of the game and
+    can be used by agents to reason about the game.
+
+    Much of the information in a GameState is stored in a GameStateData object.  We
+    strongly suggest that you access that data via the accessor methods below rather
+    than referring to the GameStateData object directly.
+
+    Note that in classic Pacman, Pacman is always agent 0.
+    """
+
+    ####################################################
+    # Accessor methods: use these to access state data #
+    ####################################################
+
+    # static variable keeps track of which states have had getLegalActions called
+    explored = set()
+    def getAndResetExplored():
+        tmp = GameState.explored.copy()
+        GameState.explored = set()
+        return tmp
+    getAndResetExplored = staticmethod(getAndResetExplored)
+
+    def getLegalActions( self, agentIndex=0 ):
+        """
+        Returns the legal actions for the agent specified.
+        """
+#        GameState.explored.add(self)
+        if self.isWin() or self.isLose(): return []
+
+        if agentIndex == 0:  # Pacman is moving
+            return PacmanRules.getLegalActions( self )
+        else:
+            return GhostRules.getLegalActions( self, agentIndex )
+
+    def generateSuccessor( self, agentIndex, action):
+        """
+        Returns the successor state after the specified agent takes the action.
+        """
+        # Check that successors exist
+        if self.isWin() or self.isLose(): raise Exception('Can\'t generate a successor of a terminal state.')
+
+        # Copy current state
+        state = GameState(self)
+
+        # Let agent's logic deal with its action's effects on the board
+        if agentIndex == 0:  # Pacman is moving
+            state.data._eaten = [False for i in range(state.getNumAgents())]
+            PacmanRules.applyAction( state, action )
+        else:                # A ghost is moving
+            GhostRules.applyAction( state, action, agentIndex )
+
+        # Time passes
+        if agentIndex == 0:
+            state.data.scoreChange += -TIME_PENALTY # Penalty for waiting around
+        else:
+            GhostRules.decrementTimer( state.data.agentStates[agentIndex] )
+
+        # Resolve multi-agent effects
+        GhostRules.checkDeath( state, agentIndex )
+
+        # Book keeping
+        state.data._agentMoved = agentIndex
+        state.data.score += state.data.scoreChange
+        GameState.explored.add(self)
+        GameState.explored.add(state)
+        return state
+
+    def getLegalPacmanActions( self ):
+        return self.getLegalActions( 0 )
+
+    def generatePacmanSuccessor( self, action ):
+        """
+        Generates the successor state after the specified pacman move
+        """
+        return self.generateSuccessor( 0, action )
+
+    def getPacmanState( self ):
+        """
+        Returns an AgentState object for pacman (in game.py)
+
+        state.pos gives the current position
+        state.direction gives the travel vector
+        """
+        return self.data.agentStates[0].copy()
+
+    def getPacmanPosition( self ):
+        return self.data.agentStates[0].getPosition()
+
+    def getGhostStates( self ):
+        return self.data.agentStates[1:]
+
+    def getGhostState( self, agentIndex ):
+        if agentIndex == 0 or agentIndex >= self.getNumAgents():
+            raise Exception("Invalid index passed to getGhostState")
+        return self.data.agentStates[agentIndex]
+
+    def getGhostPosition( self, agentIndex ):
+        if agentIndex == 0:
+            raise Exception("Pacman's index passed to getGhostPosition")
+        return self.data.agentStates[agentIndex].getPosition()
+
+    def getGhostPositions(self):
+        return [s.getPosition() for s in self.getGhostStates()]
+
+    def getNumAgents( self ):
+        return len( self.data.agentStates )
+
+    def getScore( self ):
+        return float(self.data.score)
+
+    def getCapsules(self):
+        """
+        Returns a list of positions (x,y) of the remaining capsules.
+        """
+        return self.data.capsules
+
+    def getNumFood( self ):
+        return self.data.food.count()
+
+    def getFood(self):
+        """
+        Returns a Grid of boolean food indicator variables.
+
+        Grids can be accessed via list notation, so to check
+        if there is food at (x,y), just call
+
+        currentFood = state.getFood()
+        if currentFood[x][y] == True: ...
+        """
+        return self.data.food
+
+    def getWalls(self):
+        """
+        Returns a Grid of boolean wall indicator variables.
+
+        Grids can be accessed via list notation, so to check
+        if there is a wall at (x,y), just call
+
+        walls = state.getWalls()
+        if walls[x][y] == True: ...
+        """
+        return self.data.layout.walls
+
+    def hasFood(self, x, y):
+        return self.data.food[x][y]
+
+    def hasWall(self, x, y):
+        return self.data.layout.walls[x][y]
+
+    def isLose( self ):
+        return self.data._lose
+
+    def isWin( self ):
+        return self.data._win
+
+    #############################################
+    #             Helper methods:               #
+    # You shouldn't need to call these directly #
+    #############################################
+
+    def __init__( self, prevState = None ):
+        """
+        Generates a new state by copying information from its predecessor.
+        """
+        if prevState != None: # Initial state
+            self.data = GameStateData(prevState.data)
+        else:
+            self.data = GameStateData()
+
+    def deepCopy( self ):
+        state = GameState( self )
+        state.data = self.data.deepCopy()
+        return state
+
+    def __eq__( self, other ):
+        """
+        Allows two states to be compared.
+        """
+        return hasattr(other, 'data') and self.data == other.data
+
+    def __hash__( self ):
+        """
+        Allows states to be keys of dictionaries.
+        """
+        return hash( self.data )
+
+    def __str__( self ):
+
+        return str(self.data)
+
+    def initialize( self, layout, numGhostAgents=1000 ):
+        """
+        Creates an initial game state from a layout array (see layout.py).
+        """
+        self.data.initialize(layout, numGhostAgents)
+
+############################################################################
+#                     THE HIDDEN SECRETS OF PACMAN                         #
+#                                                                          #
+# You shouldn't need to look through the code in this section of the file. #
+############################################################################
+
+SCARED_TIME = 40    # Moves ghosts are scared
+COLLISION_TOLERANCE = 0.7 # How close ghosts must be to Pacman to kill
+TIME_PENALTY = 1 # Number of points lost each round
+
+class ClassicGameRules:
+    """
+    These game rules manage the control flow of a game, deciding when
+    and how the game starts and ends.
+    """
+    def __init__(self, timeout=30):
+        self.timeout = timeout
+
+    def newGame( self, layout, pacmanAgent, ghostAgents, display, quiet = False, catchExceptions=False):
+        agents = [pacmanAgent] + ghostAgents[:layout.getNumGhosts()]
+        initState = GameState()
+        initState.initialize( layout, len(ghostAgents) )
+        game = Game(agents, display, self, catchExceptions=catchExceptions)
+        game.state = initState
+        self.initialState = initState.deepCopy()
+        self.quiet = quiet
+        return game
+
+    def process(self, state, game):
+        """
+        Checks to see whether it is time to end the game.
+        """
+        if state.isWin(): self.win(state, game)
+        if state.isLose(): self.lose(state, game)
+
+    def win( self, state, game ):
+        if not self.quiet: print("Pacman emerges victorious! Score: %d" % state.data.score)
+        game.gameOver = True
+
+    def lose( self, state, game ):
+        if not self.quiet: print("Pacman died! Score: %d" % state.data.score)
+        game.gameOver = True
+
+    def getProgress(self, game):
+        return float(game.state.getNumFood()) / self.initialState.getNumFood()
+
+    def agentCrash(self, game, agentIndex):
+        if agentIndex == 0:
+            print("Pacman crashed")
+        else:
+            print("A ghost crashed")
+
+    def getMaxTotalTime(self, agentIndex):
+        return self.timeout
+
+    def getMaxStartupTime(self, agentIndex):
+        return self.timeout
+
+    def getMoveWarningTime(self, agentIndex):
+        return self.timeout
+
+    def getMoveTimeout(self, agentIndex):
+        return self.timeout
+
+    def getMaxTimeWarnings(self, agentIndex):
+        return 0
+
+class PacmanRules:
+    """
+    These functions govern how pacman interacts with his environment under
+    the classic game rules.
+    """
+    PACMAN_SPEED=1
+
+    def getLegalActions( state ):
+        """
+        Returns a list of possible actions.
+        """
+        return Actions.getPossibleActions( state.getPacmanState().configuration, state.data.layout.walls )
+    getLegalActions = staticmethod( getLegalActions )
+
+    def applyAction( state, action ):
+        """
+        Edits the state to reflect the results of the action.
+        """
+        legal = PacmanRules.getLegalActions( state )
+        if action not in legal:
+            raise Exception("Illegal action " + str(action))
+
+        pacmanState = state.data.agentStates[0]
+
+        # Update Configuration
+        vector = Actions.directionToVector( action, PacmanRules.PACMAN_SPEED )
+        pacmanState.configuration = pacmanState.configuration.generateSuccessor( vector )
+
+        # Eat
+        next = pacmanState.configuration.getPosition()
+        nearest = nearestPoint( next )
+        if manhattanDistance( nearest, next ) <= 0.5 :
+            # Remove food
+            PacmanRules.consume( nearest, state )
+    applyAction = staticmethod( applyAction )
+
+    def consume( position, state ):
+        x,y = position
+        # Eat food
+        if state.data.food[x][y]:
+            state.data.scoreChange += 10
+            state.data.food = state.data.food.copy()
+            state.data.food[x][y] = False
+            state.data._foodEaten = position
+            # TODO: cache numFood?
+            numFood = state.getNumFood()
+            if numFood == 0 and not state.data._lose:
+                state.data.scoreChange += 500
+                state.data._win = True
+        # Eat capsule
+        if( position in state.getCapsules() ):
+            state.data.capsules.remove( position )
+            state.data._capsuleEaten = position
+            # Reset all ghosts' scared timers
+            for index in range( 1, len( state.data.agentStates ) ):
+                state.data.agentStates[index].scaredTimer = SCARED_TIME
+    consume = staticmethod( consume )
+
+class GhostRules:
+    """
+    These functions dictate how ghosts interact with their environment.
+    """
+    GHOST_SPEED=1.0
+    def getLegalActions( state, ghostIndex ):
+        """
+        Ghosts cannot stop, and cannot turn around unless they
+        reach a dead end, but can turn 90 degrees at intersections.
+        """
+        conf = state.getGhostState( ghostIndex ).configuration
+        possibleActions = Actions.getPossibleActions( conf, state.data.layout.walls )
+        reverse = Actions.reverseDirection( conf.direction )
+        if Directions.STOP in possibleActions:
+            possibleActions.remove( Directions.STOP )
+        if reverse in possibleActions and len( possibleActions ) > 1:
+            possibleActions.remove( reverse )
+        return possibleActions
+    getLegalActions = staticmethod( getLegalActions )
+
+    def applyAction( state, action, ghostIndex):
+
+        legal = GhostRules.getLegalActions( state, ghostIndex )
+        if action not in legal:
+            raise Exception("Illegal ghost action " + str(action))
+
+        ghostState = state.data.agentStates[ghostIndex]
+        speed = GhostRules.GHOST_SPEED
+        if ghostState.scaredTimer > 0: speed /= 2.0
+        vector = Actions.directionToVector( action, speed )
+        ghostState.configuration = ghostState.configuration.generateSuccessor( vector )
+    applyAction = staticmethod( applyAction )
+
+    def decrementTimer( ghostState):
+        timer = ghostState.scaredTimer
+        if timer == 1:
+            ghostState.configuration.pos = nearestPoint( ghostState.configuration.pos )
+        ghostState.scaredTimer = max( 0, timer - 1 )
+    decrementTimer = staticmethod( decrementTimer )
+
+    def checkDeath( state, agentIndex):
+        pacmanPosition = state.getPacmanPosition()
+        if agentIndex == 0: # Pacman just moved; Anyone can kill him
+            for index in range( 1, len( state.data.agentStates ) ):
+                ghostState = state.data.agentStates[index]
+                ghostPosition = ghostState.configuration.getPosition()
+                if GhostRules.canKill( pacmanPosition, ghostPosition ):
+                    GhostRules.collide( state, ghostState, index )
+        else:
+            ghostState = state.data.agentStates[agentIndex]
+            ghostPosition = ghostState.configuration.getPosition()
+            if GhostRules.canKill( pacmanPosition, ghostPosition ):
+                GhostRules.collide( state, ghostState, agentIndex )
+    checkDeath = staticmethod( checkDeath )
+
+    def collide( state, ghostState, agentIndex):
+        if ghostState.scaredTimer > 0:
+            state.data.scoreChange += 200
+            GhostRules.placeGhost(state, ghostState)
+            ghostState.scaredTimer = 0
+            # Added for first-person
+            state.data._eaten[agentIndex] = True
+        else:
+            if not state.data._win:
+                state.data.scoreChange -= 500
+                state.data._lose = True
+    collide = staticmethod( collide )
+
+    def canKill( pacmanPosition, ghostPosition ):
+        return manhattanDistance( ghostPosition, pacmanPosition ) <= COLLISION_TOLERANCE
+    canKill = staticmethod( canKill )
+
+    def placeGhost(state, ghostState):
+        ghostState.configuration = ghostState.start
+    placeGhost = staticmethod( placeGhost )
+
+#############################
+# FRAMEWORK TO START A GAME #
+#############################
+
+def default(str):
+    return str + ' [Default: %default]'
+
+def parseAgentArgs(str):
+    if str == None: return {}
+    pieces = str.split(',')
+    opts = {}
+    for p in pieces:
+        if '=' in p:
+            key, val = p.split('=')
+        else:
+            key,val = p, 1
+        opts[key] = val
+    return opts
+
+def readCommand( argv ):
+    """
+    Processes the command used to run pacman from the command line.
+    """
+    from optparse import OptionParser
+    usageStr = """
+    USAGE:      python pacman.py <options>
+    EXAMPLES:   (1) python pacman.py
+                    - starts an interactive game
+                (2) python pacman.py --layout smallClassic --zoom 2
+                OR  python pacman.py -l smallClassic -z 2
+                    - starts an interactive game on a smaller board, zoomed in
+    """
+    parser = OptionParser(usageStr)
+
+    parser.add_option('-n', '--numGames', dest='numGames', type='int',
+                      help=default('the number of GAMES to play'), metavar='GAMES', default=1)
+    parser.add_option('-l', '--layout', dest='layout',
+                      help=default('the LAYOUT_FILE from which to load the map layout'),
+                      metavar='LAYOUT_FILE', default='mediumClassic')
+    parser.add_option('-p', '--pacman', dest='pacman',
+                      help=default('the agent TYPE in the pacmanAgents module to use'),
+                      metavar='TYPE', default='KeyboardAgent')
+    parser.add_option('-t', '--textGraphics', action='store_true', dest='textGraphics',
+                      help='Display output as text only', default=False)
+    parser.add_option('-q', '--quietTextGraphics', action='store_true', dest='quietGraphics',
+                      help='Generate minimal output and no graphics', default=False)
+    parser.add_option('-g', '--ghosts', dest='ghost',
+                      help=default('the ghost agent TYPE in the ghostAgents module to use'),
+                      metavar = 'TYPE', default='RandomGhost')
+    parser.add_option('-k', '--numghosts', type='int', dest='numGhosts',
+                      help=default('The maximum number of ghosts to use'), default=4)
+    parser.add_option('-z', '--zoom', type='float', dest='zoom',
+                      help=default('Zoom the size of the graphics window'), default=1.0)
+    parser.add_option('-f', '--fixRandomSeed', action='store_true', dest='fixRandomSeed',
+                      help='Fixes the random seed to always play the same game', default=False)
+    parser.add_option('-r', '--recordActions', action='store_true', dest='record',
+                      help='Writes game histories to a file (named by the time they were played)', default=False)
+    parser.add_option('--replay', dest='gameToReplay',
+                      help='A recorded game file (pickle) to replay', default=None)
+    parser.add_option('-a','--agentArgs',dest='agentArgs',
+                      help='Comma separated values sent to agent. e.g. "opt1=val1,opt2,opt3=val3"')
+    parser.add_option('-x', '--numTraining', dest='numTraining', type='int',
+                      help=default('How many episodes are training (suppresses output)'), default=0)
+    parser.add_option('--frameTime', dest='frameTime', type='float',
+                      help=default('Time to delay between frames; <0 means keyboard'), default=0.1)
+    parser.add_option('-c', '--catchExceptions', action='store_true', dest='catchExceptions',
+                      help='Turns on exception handling and timeouts during games', default=False)
+    parser.add_option('--timeout', dest='timeout', type='int',
+                      help=default('Maximum length of time an agent can spend computing in a single game'), default=30)
+
+    options, otherjunk = parser.parse_args(argv)
+    if len(otherjunk) != 0:
+        raise Exception('Command line input not understood: ' + str(otherjunk))
+    args = dict()
+
+    # Fix the random seed
+    if options.fixRandomSeed: random.seed('cs188')
+
+    # Choose a layout
+    args['layout'] = layout.getLayout( options.layout )
+    if args['layout'] == None: raise Exception("The layout " + options.layout + " cannot be found")
+
+    # Choose a Pacman agent
+    noKeyboard = options.gameToReplay == None and (options.textGraphics or options.quietGraphics)
+    pacmanType = loadAgent(options.pacman, noKeyboard)
+    agentOpts = parseAgentArgs(options.agentArgs)
+    if options.numTraining > 0:
+        args['numTraining'] = options.numTraining
+        if 'numTraining' not in agentOpts: agentOpts['numTraining'] = options.numTraining
+    pacman = pacmanType(**agentOpts) # Instantiate Pacman with agentArgs
+    args['pacman'] = pacman
+
+    # Don't display training games
+    if 'numTrain' in agentOpts:
+        options.numQuiet = int(agentOpts['numTrain'])
+        options.numIgnore = int(agentOpts['numTrain'])
+
+    # Choose a ghost agent
+    ghostType = loadAgent(options.ghost, noKeyboard)
+    args['ghosts'] = [ghostType( i+1 ) for i in range( options.numGhosts )]
+
+    # Choose a display format
+    if options.quietGraphics:
+        import textDisplay
+        args['display'] = textDisplay.NullGraphics()
+    elif options.textGraphics:
+        import textDisplay
+        textDisplay.SLEEP_TIME = options.frameTime
+        args['display'] = textDisplay.PacmanGraphics()
+    else:
+        import graphicsDisplay
+        args['display'] = graphicsDisplay.PacmanGraphics(options.zoom, frameTime = options.frameTime)
+    args['numGames'] = options.numGames
+    args['record'] = options.record
+    args['catchExceptions'] = options.catchExceptions
+    args['timeout'] = options.timeout
+
+    # Special case: recorded games don't use the runGames method or args structure
+    if options.gameToReplay != None:
+        print('Replaying recorded game %s.' % options.gameToReplay)
+        import pickle
+        f = open(options.gameToReplay)
+        try: recorded = pickle.load(f)
+        finally: f.close()
+        recorded['display'] = args['display']
+        replayGame(**recorded)
+        sys.exit(0)
+
+    return args
+
+def loadAgent(pacman, nographics):
+    # Looks through all pythonPath Directories for the right module,
+    pythonPathStr = os.path.expandvars("$PYTHONPATH")
+    if pythonPathStr.find(';') == -1:
+        pythonPathDirs = pythonPathStr.split(':')
+    else:
+        pythonPathDirs = pythonPathStr.split(';')
+    pythonPathDirs.append('.')
+
+    for moduleDir in pythonPathDirs:
+        if not os.path.isdir(moduleDir): continue
+        moduleNames = [f for f in os.listdir(moduleDir) if f.endswith('gents.py')]
+        for modulename in moduleNames:
+            try:
+                module = __import__(modulename[:-3])
+            except ImportError:
+                continue
+            if pacman in dir(module):
+                if nographics and modulename == 'keyboardAgents.py':
+                    raise Exception('Using the keyboard requires graphics (not text display)')
+                return getattr(module, pacman)
+    raise Exception('The agent ' + pacman + ' is not specified in any *Agents.py.')
+
+def replayGame( layout, actions, display ):
+    import pacmanAgents, ghostAgents
+    rules = ClassicGameRules()
+    agents = [pacmanAgents.GreedyAgent()] + [ghostAgents.RandomGhost(i+1) for i in range(layout.getNumGhosts())]
+    game = rules.newGame( layout, agents[0], agents[1:], display )
+    state = game.state
+    display.initialize(state.data)
+
+    for action in actions:
+            # Execute the action
+        state = state.generateSuccessor( *action )
+        # Change the display
+        display.update( state.data )
+        # Allow for game specific conditions (winning, losing, etc.)
+        rules.process(state, game)
+
+    display.finish()
+
+def runGames( layout, pacman, ghosts, display, numGames, record, numTraining = 0, catchExceptions=False, timeout=30 ):
+    import __main__
+    __main__.__dict__['_display'] = display
+
+    rules = ClassicGameRules(timeout)
+    games = []
+
+    for i in range( numGames ):
+        beQuiet = i < numTraining
+        if beQuiet:
+                # Suppress output and graphics
+            import textDisplay
+            gameDisplay = textDisplay.NullGraphics()
+            rules.quiet = True
+        else:
+            gameDisplay = display
+            rules.quiet = False
+        game = rules.newGame( layout, pacman, ghosts, gameDisplay, beQuiet, catchExceptions)
+        game.run()
+        if not beQuiet: games.append(game)
+
+        if record:
+            import time, pickle
+            fname = ('recorded-game-%d' % (i + 1)) +  '-'.join([str(t) for t in time.localtime()[1:6]])
+            f = open(fname, 'w')
+            components = {'layout': layout, 'actions': game.moveHistory}
+            pickle.dump(components, f)
+            f.close()
+
+    if (numGames-numTraining) > 0:
+        scores = [game.state.getScore() for game in games]
+        wins = [game.state.isWin() for game in games]
+        winRate = wins.count(True)/ float(len(wins))
+        print('Average Score:', sum(scores) / float(len(scores)))
+        print('Scores:       ', ', '.join([str(score) for score in scores]))
+        print('Win Rate:      %d/%d (%.2f)' % (wins.count(True), len(wins), winRate))
+        print('Record:       ', ', '.join([ ['Loss', 'Win'][int(w)] for w in wins]))
+
+    return games
+
+if __name__ == '__main__':
+    """
+    The main function called when pacman.py is run
+    from the command line:
+
+    > python pacman.py
+
+    See the usage string for more details.
+
+    > python pacman.py --help
+    """
+    args = readCommand( sys.argv[1:] ) # Get game components based on input
+    runGames( **args )
+
+    # import cProfile
+    # cProfile.run("runGames( **args )")
+    pass
+
+
+# pacmanAgents.py
+# pacmanAgents.py
+# ---------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+from pacman import Directions
+from game import Agent
+import random
+import game
+import util
+
+class LeftTurnAgent(game.Agent):
+    "An agent that turns left at every opportunity"
+
+    def getAction(self, state):
+        legal = state.getLegalPacmanActions()
+        current = state.getPacmanState().configuration.direction
+        if current == Directions.STOP: current = Directions.NORTH
+        left = Directions.LEFT[current]
+        if left in legal: return left
+        if current in legal: return current
+        if Directions.RIGHT[current] in legal: return Directions.RIGHT[current]
+        if Directions.LEFT[left] in legal: return Directions.LEFT[left]
+        return Directions.STOP
+
+class GreedyAgent(Agent):
+    def __init__(self, evalFn="scoreEvaluation"):
+        self.evaluationFunction = util.lookup(evalFn, globals())
+        assert self.evaluationFunction != None
+
+    def getAction(self, state):
+        # Generate candidate actions
+        legal = state.getLegalPacmanActions()
+        if Directions.STOP in legal: legal.remove(Directions.STOP)
+
+        successors = [(state.generateSuccessor(0, action), action) for action in legal]
+        scored = [(self.evaluationFunction(state), action) for state, action in successors]
+        bestScore = max(scored)[0]
+        bestActions = [pair[1] for pair in scored if pair[0] == bestScore]
+        return random.choice(bestActions)
+
+def scoreEvaluation(state):
+    return state.getScore()
+
+
+# perceptron.py
+# perceptron.py
+# -------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+# Perceptron implementation
+import util
+PRINT = True
+
+class PerceptronClassifier:
+    """
+    Perceptron classifier.
+
+    Note that the variable 'datum' in this code refers to a counter of features
+    (not to a raw samples.Datum).
+    """
+    def __init__( self, legalLabels, max_iterations):
+        self.legalLabels = legalLabels
+        self.type = "perceptron"
+        self.max_iterations = max_iterations
+        self.weights = {}
+        for label in legalLabels:
+            self.weights[label] = util.Counter() # this is the data-structure you should use
+
+    def setWeights(self, weights):
+        assert len(weights) == len(self.legalLabels);
+        self.weights = weights;
+
+    def train( self, trainingData, trainingLabels, validationData, validationLabels ):
+        """
+        The training loop for the perceptron passes through the training data several
+        times and updates the weight vector for each label based on classification errors.
+        See the project description for details.
+
+        Use the provided self.weights[label] data structure so that
+        the classify method works correctly. Also, recall that a
+        datum is a counter from features to values for those features
+        (and thus represents a vector a values).
+        """
+
+        self.features = trainingData[0].keys() # could be useful later
+        # DO NOT ZERO OUT YOUR WEIGHTS BEFORE STARTING TRAINING, OR
+        # THE AUTOGRADER WILL LIKELY DEDUCT POINTS.
+
+        for iteration in range(self.max_iterations):
+            print("Starting iteration ", iteration, "...")
+            for i in range(len(trainingData)):
+                "*** YOUR CODE HERE ***"
+                # util.raiseNotDefined()
+                feature_vector = trainingData[i]  # Feature set for this instance
+                true_label = trainingLabels[i]    # Correct label for this instance
+
+                # Compute scores for all labels
+                scores = util.Counter()
+                for label in self.legalLabels:
+                    scores[label] = self.weights[label] * feature_vector
+
+                # Predicted label (class with the highest score)
+                predicted_label = scores.argMax()
+
+                # If misclassified, update weights
+                if predicted_label != true_label:
+                    self.weights[true_label] += feature_vector  # Increase weight for correct class
+                    self.weights[predicted_label] -= feature_vector  # Decrease weight for incorrect class
+
+    def classify(self, data ):
+        """
+        Classifies each datum as the label that most closely matches the prototype vector
+        for that label.  See the project description for details.
+
+        Recall that a datum is a util.counter...
+        """
+        guesses = []
+        for datum in data:
+            vectors = util.Counter()
+            for l in self.legalLabels:
+                vectors[l] = self.weights[l] * datum
+            guesses.append(vectors.argMax())
+        return guesses
+
+
+    def findHighWeightFeatures(self, label):
+        """
+        Returns a list of the 100 features with the greatest weight for some label
+        """
+        featuresWeights = []
+
+        "*** YOUR CODE HERE ***"
+        # Get all weights for the specified label (it's a util.Counter).
+        labelWeights = self.weights[label]
+
+        # Get the list of all features sorted by their weight in descending order.
+        sortedFeatures = labelWeights.sortedKeys()
+
+        # Now, pick the top 100 features (or fewer if fewer than 100 exist).
+        featuresWeights = sortedFeatures[:100]
+        return featuresWeights
+
+
+# perceptron_pacman.py
+# perceptron_pacman.py
+# --------------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+# Perceptron implementation for apprenticeship learning
+import util
+from perceptron import PerceptronClassifier
+from pacman import GameState
+
+PRINT = True
+
+
+class PerceptronClassifierPacman(PerceptronClassifier):
+    def __init__(self, legalLabels, maxIterations):
+        PerceptronClassifier.__init__(self, legalLabels, maxIterations)
+        self.weights = util.Counter()
+
+    def classify(self, data ):
+        """
+        Data contains a list of (datum, legal moves)
+        
+        Datum is a Counter representing the features of each GameState.
+        legalMoves is a list of legal moves for that GameState.
+        """
+        guesses = []
+        for datum, legalMoves in data:
+            vectors = util.Counter()
+            for l in legalMoves:
+                vectors[l] = self.weights * datum[l] #changed from datum to datum[l]
+            guesses.append(vectors.argMax())
+        return guesses
+
+
+    def train( self, trainingData, trainingLabels, validationData, validationLabels ):
+        self.features = trainingData[0][0]['Stop'].keys() # could be useful later
+        # DO NOT ZERO OUT YOUR WEIGHTS BEFORE STARTING TRAINING, OR
+        # THE AUTOGRADER WILL LIKELY DEDUCT POINTS.
+
+        for iteration in range(self.max_iterations):
+            print("Starting iteration ", iteration, "...")
+            for i in range(len(trainingData)):
+                "*** YOUR CODE HERE ***"
+                """
+                Train the perceptron by iterating over training data and updating weights.
+                """
+                datum, legalMoves = trainingData[i]  # Extract state features and legal actions
+                true_label = trainingLabels[i]  # Correct action
+                
+                # Compute scores for each legal action
+                scores = util.Counter()
+                for action in legalMoves:
+                    scores[action] = self.weights * datum[action]  # Dot product
+                
+                predicted_action = scores.argMax()  # Action with the highest score
+
+                # If prediction is incorrect, update weights
+                if predicted_action != true_label:
+                    self.weights += datum[true_label]  # Increase weight for the correct action
+                    self.weights -= datum[predicted_action]  # Decrease weight for the incorrect action
+
+# projectParams.py
+# projectParams.py
+# ----------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+STUDENT_CODE_DEFAULT = 'naiveBayes.py,perceptron.py,mira.py,dataClassifier.py,answers.py,perceptron_pacman.py'
+PROJECT_TEST_CLASSES = 'classificationTestClasses.py'
+PROJECT_NAME = 'Project 5: Classification'
+BONUS_PIC = False
+
+

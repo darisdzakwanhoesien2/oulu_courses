@@ -1,0 +1,6 @@
+{
+    "question": "Find the best approximation of v in the span of u1 and u2 using the projection matrix method.",
+    "input": {
+        "v": [
+            [
+                

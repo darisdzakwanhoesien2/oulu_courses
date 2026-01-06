@@ -1,0 +1,925 @@
+# ai_exercise1_a_star.py
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Define the grid and the problem ()
+grid = [
+    [' ', ' ', ' ', ' ',' ', ' ', 'X', ' '],
+    [' ', ' ', ' ', 'X',' ', ' ', ' ', ' '],
+    [' ', ' ', 'X', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', 'X', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ',' ', ' ', ' ', ' ']
+]
+
+start = (3, 2)
+goal = (2, 5)
+directions = {'UP': (-1, 0), 'DOWN': (1, 0), 'LEFT': (0, -1), 'RIGHT': (0, 1)}
+
+def plot_grid(path, visited, step_numbers):
+    """Visualize the grid with the path, visited nodes, and step numbers."""
+    fig, ax = plt.subplots()
+    nrows, ncols = len(grid), len(grid[0])
+    ax.set_xlim(0, ncols)
+    ax.set_ylim(0, nrows)
+    ax.invert_yaxis()
+
+    # Draw the grid
+    for row in range(nrows):
+        for col in range(ncols):
+            if grid[row][col] == 'X':
+                ax.add_patch(plt.Rectangle((col, row), 1, 1, color="black"))
+            else:
+                ax.add_patch(plt.Rectangle((col, row), 1, 1, edgecolor="gray", facecolor="white"))
+
+    # Mark the visited nodes
+    for vr, vc in visited:
+        ax.add_patch(plt.Circle((vc + 0.5, vr + 0.5), 0.2, color="blue", alpha=0.5))
+
+    # Mark the path and add step numbers
+    for i, (pr, pc) in enumerate(path):
+        ax.add_patch(plt.Circle((pc + 0.5, pr + 0.5), 0.3, color="green"))
+        ax.text(pc + 0.5, pr + 0.5, str(step_numbers[i]), color="white", ha="center", va="center", fontsize=8)
+
+    # Highlight start and goal
+    ax.add_patch(plt.Circle((start[1] + 0.5, start[0] + 0.5), 0.3, color="yellow"))
+    ax.add_patch(plt.Circle((goal[1] + 0.5, goal[0] + 0.5), 0.3, color="red"))
+
+    ax.set_aspect('equal')
+    plt.xticks(np.arange(ncols), [])
+    plt.yticks(np.arange(nrows), [])
+    plt.show()
+
+import heapq
+
+def manhattan_heuristic(state):
+    """Calculate Manhattan distance from the state to the goal."""
+    sr, sc = state
+    gr, gc = goal
+    return abs(sr - gr) + abs(sc - gc)
+
+def a_star_search_visual(problem):
+    """Visualize A* Search with step-by-step updates."""
+    priority_queue = []
+    heapq.heappush(priority_queue, (0 + manhattan_heuristic(problem['start']), 0, problem['start'], []))
+    visited = {}
+    step_count = 0
+
+    while priority_queue:
+        f_cost, g_cost, state, path = heapq.heappop(priority_queue)
+
+        if state in visited and visited[state] <= g_cost:
+            continue
+
+        visited[state] = g_cost
+        path = path + [state]
+        step_numbers = list(range(len(path)))
+
+        # Visualize current step
+        print(f"Step {step_count}: Exploring {state} with f(n) = {f_cost}, g(n) = {g_cost}, h(n) = {f_cost - g_cost}")
+        plot_grid(path, visited, step_numbers)
+        step_count += 1
+
+        if state == problem['goal']:
+            print("Goal reached!")
+            return path
+
+        r, c = state
+        for action, (dr, dc) in directions.items():
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < len(grid) and 0 <= nc < len(grid[0]) and grid[nr][nc] != 'X':
+                new_g_cost = g_cost + 1
+                heapq.heappush(priority_queue, (new_g_cost + manhattan_heuristic((nr, nc)), new_g_cost, (nr, nc), path))
+
+    print("No solution found.")
+    return None
+
+# Define the problem as a dictionary
+problem = {
+    'start': start,
+    'goal': goal,
+    'grid': grid
+}
+
+# Run and visualize A* Search
+a_star_path = a_star_search_visual(problem)
+
+# ai_exercise1_dfs.py
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Define the grid and the problem ()
+grid = [
+    [' ', ' ', ' ', ' ',' ', ' ', 'X', ' '],
+    [' ', ' ', ' ', 'X',' ', ' ', ' ', ' '],
+    [' ', ' ', 'X', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', 'X', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ',' ', ' ', ' ', ' ']
+]
+
+start = (3, 2)
+goal = (2, 5)
+directions = {'UP': (-1, 0), 'DOWN': (1, 0), 'LEFT': (0, -1), 'RIGHT': (0, 1)}
+
+def plot_grid(path, visited, step_numbers):
+    """Visualize the grid with the path, visited nodes, and step numbers."""
+    fig, ax = plt.subplots()
+    nrows, ncols = len(grid), len(grid[0])
+    ax.set_xlim(0, ncols)
+    ax.set_ylim(0, nrows)
+    ax.invert_yaxis()
+
+    # Draw the grid
+    for row in range(nrows):
+        for col in range(ncols):
+            if grid[row][col] == 'X':
+                ax.add_patch(plt.Rectangle((col, row), 1, 1, color="black"))
+            else:
+                ax.add_patch(plt.Rectangle((col, row), 1, 1, edgecolor="gray", facecolor="white"))
+
+    # Mark the visited nodes
+    for vr, vc in visited:
+        ax.add_patch(plt.Circle((vc + 0.5, vr + 0.5), 0.2, color="blue", alpha=0.5))
+
+    # Mark the path and add step numbers
+    for i, (pr, pc) in enumerate(path):
+        ax.add_patch(plt.Circle((pc + 0.5, pr + 0.5), 0.3, color="green"))
+        ax.text(pc + 0.5, pr + 0.5, str(step_numbers[i]), color="white", ha="center", va="center", fontsize=8)
+
+    # Highlight start and goal
+    ax.add_patch(plt.Circle((start[1] + 0.5, start[0] + 0.5), 0.3, color="yellow"))
+    ax.add_patch(plt.Circle((goal[1] + 0.5, goal[0] + 0.5), 0.3, color="red"))
+
+    ax.set_aspect('equal')
+    plt.xticks(np.arange(ncols), [])
+    plt.yticks(np.arange(nrows), [])
+    plt.show()
+
+import heapq
+
+def depth_first_search_visual(problem):
+    """Visualize DFS with step-by-step updates."""
+    stack = [(problem['start'], [])]
+    visited = set()
+    step_count = 0
+
+    while stack:
+        state, path = stack.pop()
+
+        if state in visited:
+            continue
+
+        visited.add(state)
+        path = path + [state]
+        step_numbers = list(range(len(path)))
+
+        # Visualize current step
+        print(f"Step {step_count}: Exploring {state}")
+        plot_grid(path, visited, step_numbers)
+        step_count += 1
+
+        if state == problem['goal']:
+            print("Goal reached!")
+            return path
+
+        r, c = state
+        for action, (dr, dc) in directions.items():
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < len(grid) and 0 <= nc < len(grid[0]) and grid[nr][nc] != 'X':
+                stack.append(((nr, nc), path))
+
+    print("No solution found.")
+    return None
+
+# Define the problem as a dictionary
+problem = {
+    'start': start,
+    'goal': goal,
+    'grid': grid
+}
+
+# Run and visualize DFS
+dfs_path = depth_first_search_visual(problem)
+
+# ai_exercise1_dfs_tree.py
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Define the grid and the problem ()
+grid = [
+    [' ', ' ', ' ', ' ',' ', ' ', 'X', ' '],
+    [' ', ' ', ' ', 'X',' ', ' ', ' ', ' '],
+    [' ', ' ', 'X', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', 'X', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ',' ', ' ', ' ', ' ']
+]
+
+start = (3, 2)
+goal = (2, 5)
+directions = {'UP': (-1, 0), 'DOWN': (1, 0), 'LEFT': (0, -1), 'RIGHT': (0, 1)}
+
+def plot_grid(path, visited, step_numbers):
+    """Visualize the grid with the path, visited nodes, and step numbers."""
+    fig, ax = plt.subplots()
+    nrows, ncols = len(grid), len(grid[0])
+    ax.set_xlim(0, ncols)
+    ax.set_ylim(0, nrows)
+    ax.invert_yaxis()
+
+    # Draw the grid
+    for row in range(nrows):
+        for col in range(ncols):
+            if grid[row][col] == 'X':
+                ax.add_patch(plt.Rectangle((col, row), 1, 1, color="black"))
+            else:
+                ax.add_patch(plt.Rectangle((col, row), 1, 1, edgecolor="gray", facecolor="white"))
+
+    # Mark the visited nodes
+    for vr, vc in visited:
+        ax.add_patch(plt.Circle((vc + 0.5, vr + 0.5), 0.2, color="blue", alpha=0.5))
+
+    # Mark the path and add step numbers
+    for i, (pr, pc) in enumerate(path):
+        ax.add_patch(plt.Circle((pc + 0.5, pr + 0.5), 0.3, color="green"))
+        ax.text(pc + 0.5, pr + 0.5, str(step_numbers[i]), color="white", ha="center", va="center", fontsize=8)
+
+    # Highlight start and goal
+    ax.add_patch(plt.Circle((start[1] + 0.5, start[0] + 0.5), 0.3, color="yellow"))
+    ax.add_patch(plt.Circle((goal[1] + 0.5, goal[0] + 0.5), 0.3, color="red"))
+
+    ax.set_aspect('equal')
+    plt.xticks(np.arange(ncols), [])
+    plt.yticks(np.arange(nrows), [])
+    plt.show()
+
+import heapq
+
+def depth_first_search_tree(problem):
+    """Depth-first search using tree search."""
+    stack = [(problem['start'], [])]
+    step_count = 0
+
+    while stack:
+        state, path = stack.pop()
+
+        path = path + [state]
+        step_numbers = list(range(len(path)))
+
+        # Visualize current step
+        print(f"Step {step_count}: Exploring {state}")
+        plot_grid(path, {}, step_numbers)
+        step_count += 1
+
+        if state == problem['goal']:
+            print("Goal reached!")
+            return path
+
+        r, c = state
+        for action, (dr, dc) in directions.items():
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < len(grid) and 0 <= nc < len(grid[0]) and grid[nr][nc] != 'X':
+                stack.append(((nr, nc), path))
+
+    print("No solution found.")
+    return None
+
+# Define the problem as a dictionary
+problem = {
+    'start': start,
+    'goal': goal,
+    'grid': grid
+}
+
+print("Running Depth-First Search with Tree Search")
+dfs_tree_path = depth_first_search_tree(problem)
+
+# ai_exercise1_ucs.py
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Define the grid and the problem ()
+grid = [
+    [' ', ' ', ' ', ' ',' ', ' ', 'X', ' '],
+    [' ', ' ', ' ', 'X',' ', ' ', ' ', ' '],
+    [' ', ' ', 'X', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', 'X', ' ', 'X',' ', ' ', ' '],
+    [' ', ' ', ' ', ' ',' ', ' ', ' ', ' ']
+]
+
+start = (3, 2)
+goal = (2, 5)
+directions = {'UP': (-1, 0), 'DOWN': (1, 0), 'LEFT': (0, -1), 'RIGHT': (0, 1)}
+
+def plot_grid(path, visited, step_numbers):
+    """Visualize the grid with the path, visited nodes, and step numbers."""
+    fig, ax = plt.subplots()
+    nrows, ncols = len(grid), len(grid[0])
+    ax.set_xlim(0, ncols)
+    ax.set_ylim(0, nrows)
+    ax.invert_yaxis()
+
+    # Draw the grid
+    for row in range(nrows):
+        for col in range(ncols):
+            if grid[row][col] == 'X':
+                ax.add_patch(plt.Rectangle((col, row), 1, 1, color="black"))
+            else:
+                ax.add_patch(plt.Rectangle((col, row), 1, 1, edgecolor="gray", facecolor="white"))
+
+    # Mark the visited nodes
+    for vr, vc in visited:
+        ax.add_patch(plt.Circle((vc + 0.5, vr + 0.5), 0.2, color="blue", alpha=0.5))
+
+    # Mark the path and add step numbers
+    for i, (pr, pc) in enumerate(path):
+        ax.add_patch(plt.Circle((pc + 0.5, pr + 0.5), 0.3, color="green"))
+        ax.text(pc + 0.5, pr + 0.5, str(step_numbers[i]), color="white", ha="center", va="center", fontsize=8)
+
+    # Highlight start and goal
+    ax.add_patch(plt.Circle((start[1] + 0.5, start[0] + 0.5), 0.3, color="yellow"))
+    ax.add_patch(plt.Circle((goal[1] + 0.5, goal[0] + 0.5), 0.3, color="red"))
+
+    ax.set_aspect('equal')
+    plt.xticks(np.arange(ncols), [])
+    plt.yticks(np.arange(nrows), [])
+    plt.show()
+
+import heapq
+
+def uniform_cost_search_visual(problem):
+    """Visualize UCS with step-by-step updates."""
+    # 1. Initialization
+    priority_queue = []
+    heapq.heappush(priority_queue, (0, problem['start'], []))
+    visited = {}
+    step_count = 0
+
+    # 2. Search Loop
+    while priority_queue:
+        cost, state, path = heapq.heappop(priority_queue)
+
+        if state in visited and visited[state] <= cost:
+            continue
+
+        # Node is further explored and checked
+        visited[state] = cost
+        path = path + [state]
+        step_numbers = list(range(len(path)))
+
+        # Visualize current step
+        print(f"Step {step_count}: Exploring {state} with cost {cost}")
+        plot_grid(path, visited, step_numbers)
+        step_count += 1
+
+        # The path will be return once the goal is reach
+        if state == problem['goal']:
+            print("Goal reached!")
+            return path
+
+        # Iteration 
+        r, c = state
+        for action, (dr, dc) in directions.items():
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < len(grid) and 0 <= nc < len(grid[0]) and grid[nr][nc] != 'X':
+                heapq.heappush(priority_queue, (cost + 1, (nr, nc), path))
+
+    print("No solution found.")
+    return None
+
+# Define the problem as a dictionary
+problem = {
+    'start': start,
+    'goal': goal,
+    'grid': grid
+}
+
+# Run and visualize UCS
+ucs_path = uniform_cost_search_visual(problem)
+
+# ai_exercise2_bayesian_network.py
+import networkx as nx
+import matplotlib.pyplot as plt
+
+# Create a directed graph
+bayesian_network = nx.DiGraph()
+
+# Add nodes and edges to represent the Bayesian Network
+# Nodes: S (Steep Mountain), C (Snow Cover), W (Weather), A (Avalanche)
+bayesian_network.add_edges_from([
+    ('S', 'A'),  # S -> A
+    ('C', 'A'),  # C -> A
+    ('W', 'C')   # W -> C
+])
+
+# Draw the Bayesian Network
+plt.figure(figsize=(8, 6))
+pos = nx.spring_layout(bayesian_network)  # Layout for the graph
+nx.draw(
+    bayesian_network, 
+    pos, 
+    with_labels=True, 
+    node_color="skyblue", 
+    node_size=2000, 
+    font_size=12, 
+    font_weight="bold", 
+    arrowsize=20
+)
+
+plt.title("Bayesian Network for Avalanche Probability", fontsize=14)
+plt.show()
+
+# ai_exercise2_variable_elimination.py
+import pandas as pd
+
+# Define the probability tables as Pandas DataFrames
+P_S = pd.DataFrame({'S': ['+s', '-s'], 'P(S)': [0.1, 0.9]})
+P_W = pd.DataFrame({'W': ['+w', '-w'], 'P(W)': [0.6, 0.4]})
+P_SC_A = pd.DataFrame({
+    'S': ['+s', '+s', '+s', '+s', '-s', '-s', '-s', '-s'],
+    'C': ['+c', '+c', '-c', '-c', '+c', '+c', '-c', '-c'],
+    'A': ['+a', '-a', '+a', '-a', '+a', '-a', '+a', '-a'],
+    'P(A|S,C)': [0.90, 0.10, 0.30, 0.70, 0.80, 0.02, 0.20, 0.98]
+})
+P_C_W = pd.DataFrame({
+    'W': ['+w', '+w', '-w', '-w'],
+    'C': ['+c', '-c', '+c', '-c'],
+    'P(C|W)': [0.8, 0.2, 0.3, 0.7]
+})
+
+# Step 1: Join P(C|W) and P(W) on W
+joint_CW_W = pd.merge(P_C_W, P_W, on='W')
+joint_CW_W['P(W,C)'] = joint_CW_W['P(C|W)'] * joint_CW_W['P(W)']
+
+# Step 2: Marginalize over W to get P(C)
+P_C = joint_CW_W.groupby('C').agg({'P(W,C)': 'sum'}).reset_index()
+P_C.rename(columns={'P(W,C)': 'P(C)'}, inplace=True)
+
+# Step 3: Join P(C) and P(A|S,C) on C
+joint_AC_SC = pd.merge(P_SC_A, P_C, on='C')
+joint_AC_SC['P(A,S,C)'] = joint_AC_SC['P(A|S,C)'] * joint_AC_SC['P(C)']
+
+# Step 4: Marginalize over C to get P(A, S)
+P_AS = joint_AC_SC.groupby(['A', 'S']).agg({'P(A,S,C)': 'sum'}).reset_index()
+P_AS.rename(columns={'P(A,S,C)': 'P(A,S)'}, inplace=True)
+
+# Step 5: Marginalize over A to normalize P(A | +S)
+P_A_given_S = P_AS[P_AS['S'] == '+s']
+P_A_given_S['P(A|+S)'] = P_A_given_S['P(A,S)'] / P_A_given_S['P(A,S)'].sum()
+
+# Final Output: Probability of A given +S
+print(P_A_given_S[['A', 'P(A|+S)']])
+
+# ai_exercise_3.py
+from itertools import permutations
+
+# Variables
+variables = ['F', 'O', 'U', 'R', 'I', 'V', 'E', 'N']
+
+# Constraints
+# R is fixed to 0
+fixed_values = {'R': 0}
+
+# Domains
+domain = {var: list(range(10)) for var in variables}
+domain['R'] = [0]  # R is fixed to 0
+domain['N'] = [1, 2, 4, 5, 6, 7, 8, 9]  # N ≠ 3
+domain['F'] = list(range(1, 10))  # F ≠ 0
+
+# Helper function to evaluate the equation
+def is_valid(assignment):
+    try:
+        F = assignment['F']
+        O = assignment['O']
+        U = assignment['U']
+        R = assignment['R']
+        I = assignment['I']
+        V = assignment['V']
+        E = assignment['E']
+        N = assignment['N']
+
+        FOUR = 1000 * F + 100 * O + 10 * U + R
+        FIVE = 1000 * F + 100 * I + 10 * V + E
+        NINE = 1000 * N + 100 * I + 10 * N + E
+
+        return FOUR + FIVE == NINE
+    except KeyError:
+        return False
+
+# Backtracking search to find all solutions
+def backtrack_all(assignment, solutions):
+    if len(assignment) == len(variables):
+        if is_valid(assignment):
+            solutions.append(assignment.copy())
+        return
+
+    # Choose the next variable to assign
+    unassigned = [v for v in variables if v not in assignment]
+    mrv_var = min(unassigned, key=lambda var: len(domain[var]))
+
+    for value in domain[mrv_var]:
+        if value in assignment.values():  # All-different constraint
+            continue
+
+        assignment[mrv_var] = value
+        backtrack_all(assignment, solutions)
+        del assignment[mrv_var]  # Backtrack
+
+# Solve the problem
+solutions = []
+backtrack_all(fixed_values.copy(), solutions)
+
+# Display the solutions
+results = []
+for solution in solutions:
+    FOUR = 1000 * solution['F'] + 100 * solution['O'] + 10 * solution['U'] + solution['R']
+    FIVE = 1000 * solution['F'] + 100 * solution['I'] + 10 * solution['V'] + solution['E']
+    NINE = 1000 * solution['N'] + 100 * solution['I'] + 10 * solution['N'] + solution['E']
+
+    results.append({
+        "FOUR": FOUR,
+        "FIVE": FIVE,
+        "NINE": NINE,
+        "Assignment": solution
+    })
+
+# ai_exercise_4.py
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+
+# Dataset
+data = np.array([
+    [1.0, 0.75, 1.0, -1],
+    [1.0, 1.0, 0.5, 0],
+    [1.0, 0.0, 0.0, 1],
+    [1.0, 0.25, 0.5, 1],
+    [1.0, 1.0, 1.0, -1],
+    [1.0, 0.75, 0.0, 0]
+])
+
+# Initial weights (changed to float)
+weights = {
+    -1: np.array([0.0, 0.0, 0.0]),
+    0: np.array([1.0, 0.0, 0.0]),
+    1: np.array([0.0, 0.0, 0.0])
+}
+
+# Modified Perceptron update function with debug prints
+def perceptron_update(weights, x, true_label):
+    print(f"\nInput Vector: {x}, True Label: {true_label}")
+
+    # Calculate scores for each class
+    scores = {label: np.dot(weights[label], x) for label in weights}
+    predicted_label = max(scores, key=scores.get)
+
+    print(f"Scores: {scores}")
+    print(f"Predicted Label: {predicted_label}, True Label: {true_label}")
+
+    # Check if update is needed
+    if predicted_label != true_label:
+        print(f"Updating Weights:")
+        print(f"  - Adding {x} to class {true_label}")
+        print(f"  - Subtracting {x} from class {predicted_label}")
+
+        weights[true_label] += x
+        weights[predicted_label] -= x
+
+        # Display updated weights
+        print(f"Updated Weights for Class {true_label}: {weights[true_label]}")
+        print(f"Updated Weights for Class {predicted_label}: {weights[predicted_label]}")
+    else:
+        print("No update needed. Prediction is correct.")
+
+    return weights
+
+# Apply updates for the first two data examples
+weights_after_first = perceptron_update(weights.copy(), data[0, :3], data[0, 3])
+weights_after_second = perceptron_update(weights_after_first.copy(), data[1, :3], data[1, 3])
+
+# Display the weight updates in a table
+table_data = {
+    "Weights for Class -1": [weights[-1], weights_after_first[-1], weights_after_second[-1]],
+    "Weights for Class 0": [weights[0], weights_after_first[0], weights_after_second[0]],
+    "Weights for Class +1": [weights[1], weights_after_first[1], weights_after_second[1]],
+}
+
+df = pd.DataFrame(table_data, index=["Initial Weights", "After First Example", "After Second Example"])
+print("\nWeight Updates Table:")
+print(df)
+
+# Visualization
+fig, ax = plt.subplots()
+
+# Plot data points
+for label, color, marker in zip([-1, 0, 1], ['red', 'blue', 'green'], ['o', 's', '^']):
+    subset = data[data[:, 3] == label]
+    ax.scatter(subset[:, 1], subset[:, 2], c=color, label=f'Class {label}', marker=marker)
+
+ax.set_xlabel('Turbidity (t)')
+ax.set_ylabel('Microbe Content (m)')
+ax.set_title('Water Quality Dataset Visualization')
+ax.legend()
+
+# Perceptron Prediction for (1.0, 0.5, 0.25)
+x_new = np.array([1.0, 0.5, 0.25])
+learned_weights = {
+    -1: np.array([1.0, 1.0, -1.0]),
+    0: np.array([1.0, 2.0, -2.0]),
+    1: np.array([-1.0, -1.0, 1.0])
+}
+
+# Prediction calculation
+predictions = {label: np.dot(w, x_new) for label, w in learned_weights.items()}
+predicted_class = max(predictions, key=predictions.get)
+
+# Return predicted class
+print(f"\nPredicted Class for New Input {x_new}: {predicted_class}")
+
+# ai_exercise_5.py
+import numpy as np
+
+# Define states
+states = ["A", "B", "C", "D", "E", "F"]
+num_states = len(states)
+
+# Define actions and transitions
+actions = {
+    "A": ["a1", "a2"],
+    "B": ["b1", "b2"],
+    "C": ["c1", "c2"],
+    "D": ["d1", "d2"],
+    "E": ["e1"],  # Only one action
+    "F": []  # Terminal state
+}
+
+# Define transition probabilities P(s' | s, a)
+P = {
+    ("A", "a1"): {"B": 0.3, "C": 0.5, "A": 0.2},
+    ("A", "a2"): {"D": 0.2, "E": 0.8},
+    ("B", "b1"): {"A": 0.2, "E": 0.8},
+    ("B", "b2"): {"C": 0.3, "B": 0.7},
+    ("C", "c1"): {"D": 0.6, "F": 0.4},
+    ("C", "c2"): {"F": 0.8, "E": 0.1, "B": 0.1},
+    ("D", "d2"): {"A": 0.6, "F": 0.4},
+    ("D", "d1"): {"C": 1.0},
+    ("E", "e1"): {"F": 0.2, "A": 0.8}  
+}
+
+# Define reward function R(s)
+R = {
+    "A": -3,
+    "B": -2,
+    "C": -2,
+    "D": -1,
+    "E": -1,
+    "F": 10  # Terminal state
+}
+
+# Discount factor
+gamma = 0.9
+
+# Step 1: Convert states into indices
+state_index = {state: i for i, state in enumerate(states)}
+
+# Step 2: Initialize the transition matrix dynamically
+P_matrix = np.zeros((num_states, num_states))  # Transition matrix
+
+# Define a fixed policy for each state (choosing one action per state)
+policy = {
+    "A": "a1",
+    "B": "b1",
+    "C": "c1",
+    "D": "d1",
+    "E": "e1",
+    "F": None  # Terminal state
+}
+
+# Fill in the transition matrix based on the selected policy
+for s, a in policy.items():
+    if a is None:  # Skip terminal states
+        continue
+    s_idx = state_index[s]
+    for s_prime, prob in P[(s, a)].items():
+        s_prime_idx = state_index[s_prime]
+        P_matrix[s_idx, s_prime_idx] = prob
+
+# Step 3: Create reward vector
+R_vector = np.array([R[s] for s in states])
+
+# Step 4: Solve the system of equations for utilities
+I = np.eye(num_states)  # Identity matrix
+A = I - gamma * P_matrix  # (I - gamma * P) matrix
+
+## Question 1: linear system of equations: utilities for all states under this policy
+print("P", P_matrix)
+# print('Reward Matrix', R_vector)
+print('A', A)
+
+
+# Question 2: computed utilities
+U = np.linalg.solve(A, R_vector)  # Solve for U
+print("State Utilities:", U)
+
+# Step 5: Policy Improvement - Update the policy based on computed utilities
+updated_policy = {}
+
+print("\n### Policy Improvement Process ###\n")
+
+for s in states:
+    if s == "F":  # Skip terminal state
+        updated_policy[s] = None
+        print(f"State {s} is a terminal state. No action needed.")
+        continue
+
+    print(f"Evaluating best action for State {s}:")
+    best_action = None
+    best_value = float('-inf')
+
+    for a in actions[s]:  # Loop through all available actions
+        expected_value = sum(
+            P[(s, a)][s_prime] * (R[s] + gamma * U[state_index[s_prime]]) 
+            for s_prime in P[(s, a)]
+        )
+
+        # Print the step-by-step computation
+        print(f"  Action {a}:")
+        for s_prime in P[(s, a)]:
+            transition_prob = P[(s, a)][s_prime]
+            reward = R[s]
+            future_utility = gamma * U[state_index[s_prime]]
+            contribution = transition_prob * (reward + future_utility)
+            print(f"    - Transition to {s_prime} (P={transition_prob}): "
+                  f"({reward} + {gamma}*{U[state_index[s_prime]]}) * {transition_prob} = {contribution:.4f}")
+
+        print(f"    => Expected Utility for {a}: {expected_value:.4f}")
+
+        # Select the action with the highest expected utility
+        if expected_value > best_value:
+            best_value = expected_value
+            best_action = a
+
+    updated_policy[s] = best_action  # Store the best action
+    print(f"  => Best action for State {s}: {best_action}\n")
+
+# Print the improved policy
+print("\n### Updated Policy ###")
+for state, action in updated_policy.items():
+    print(f"State {state}: Best Action -> {action}")
+
+
+
+# ai_exercise_6_final.py
+import numpy as np
+from collections import defaultdict
+
+# Define the episodes
+training_episodes = [
+    [((3,4),'S',(3,3),0), ((3,3),'S',(3,2),0), ((3,2),'S',(3,1),0), ((3,1),'Exit','Done',50)],
+    [((3,4),'S',(3,3),0), ((3,3),'S',(3,2),0), ((3,2),'W',(2,2),0), ((2,2),'S',(2,1),0), ((2,1),'Exit','Done',-30)],
+    [((3,4),'W',(2,4),0), ((2,4),'W',(1,4),0), ((1,4),'S',(1,3),0), ((1,3),'E',(2,3),0), ((2,3),'Exit','Done',-50)],
+    [((3,4),'W',(2,4),0), ((2,4),'W',(1,4),0), ((1,4),'S',(1,3),0), ((1,3),'S',(1,2),0), ((1,2),'S',(1,1),0), ((1,1),'Exit','Done',100)],
+]
+
+# Parameters
+alpha = 0.5
+gamma = 1.0
+
+# Q-values initialization
+Q_values = defaultdict(float)
+
+# Process episodes to extract relevant Q-values
+for episode in training_episodes:
+    G = 0  # Initialize cumulative reward
+    visited_q_pairs = set()  # First-visit tracking for Q-values
+
+    for s, a, s_prime, r in reversed(episode):  # Process in reverse order
+        G = r + G  # Accumulate reward
+        if (s, a) not in visited_q_pairs:
+            Q_values[(s, a)] += G  # Store observed returns
+            visited_q_pairs.add((s, a))  # Prevent duplicate updates for first-visit MC
+
+# Compute final Q-values as the average observed returns
+Q_direct = {key: np.mean(values) if values else 0 for key, values in Q_values.items()}
+
+# Print the results for the requested Q-values
+print("\n=== Q-values from Direct Evaluation ===")
+print(f"Q((2,4), W) = {Q_direct.get(((2,4), 'W'), 0):.4f}")
+print(f"Q((3,3), S) = {Q_direct.get(((3,3), 'S'), 0):.4f}")
+
+# Q-values initialization (for Question 2)
+Q_values = defaultdict(float)
+
+# Q-learning iterations
+for iteration in range(2):
+    print(f"\n=== Run {iteration + 1} ===")
+    for episode in training_episodes:
+        print(f"\nEpisode:")
+        for s, a, s_prime, r in episode:
+            old_q_value = Q_values[(s, a)]
+
+            # Determine max Q-value for next state
+            if s_prime == "Done":
+                max_Q_s_prime = 0
+            else:
+                possible_actions = ["N", "S", "E", "W", "Exit"]
+                available_q = [Q_values[(s_prime, act)] for act in possible_actions if (s_prime, act) in Q_values]
+                max_Q_s_prime = max(available_q, default=0)
+
+            # Q-learning update rule
+            term_sample = alpha * (r + gamma * max_Q_s_prime)
+            term_state = (1-alpha) * old_q_value
+            q_term = Q_values[(s, a)] 
+            Q_values[(s, a)] = term_sample + term_state
+            print( f"  Q({s}, {a}): Old={old_q_value:.1f}, Reward={r}, Next Q={q_term}, Next={s_prime}, Updated Q={Q_values[(s, a)]:.1f}")
+    
+    # Print all final Q-values
+    print("\nFinal Q-values:")
+    for (s, a), q in sorted(Q_values.items()):
+        print(f"Q({s}, {a}) = {q:.2f}")
+
+# max_Q_s_prime, q_term, term_sample,term_state,
+# After two runs, count non-zero Q-values
+non_zero_q_values = sum(1 for q in Q_values.values() if q != 0)
+print("\nNon-zero Q-values after two runs:", non_zero_q_values)
+
+# data.py
+from pathlib import Path
+import json
+
+def extract_content_from_ipynb(file_path: Path) -> str:
+    """
+    Extracts and concatenates the content of a Jupyter Notebook (.ipynb) file.
+    Both code cells and markdown cells are extracted, preserving the order.
+    Each cell is annotated with a header indicating its type.
+    """
+    try:
+        notebook = json.loads(file_path.read_text(encoding="utf-8"))
+        cells = notebook.get("cells", [])
+        content_lines = []
+        for idx, cell in enumerate(cells, start=1):
+            cell_type = cell.get("cell_type", "unknown")
+            # Add a header for this cell
+            if cell_type == "code":
+                content_lines.append(f"### Cell {idx}: Code")
+            elif cell_type == "markdown":
+                content_lines.append(f"### Cell {idx}: Markdown")
+            else:
+                content_lines.append(f"### Cell {idx}: {cell_type}")
+            # Join the source lines; they are typically stored as a list of lines.
+            source = "".join(cell.get("source", []))
+            content_lines.append(source)
+            content_lines.append("\n")  # Extra newline after each cell
+        return "\n".join(content_lines)
+    except Exception as e:
+        return f"# Error reading {file_path}: {e}"
+
+def export_code_and_directory_list(root_directory=".", code_file="code.txt", list_file="directories.txt"):
+    """
+    Traverses the given root directory to find all files with a .py or .ipynb extension.
+    Writes to two files:
+      - directories.txt: A list of the file paths.
+      - code.txt: Each file’s path (as header) followed by its content.
+        For .ipynb files, both code and markdown cells are included.
+    """
+    root = Path(root_directory)
+    # Collect both .py and .ipynb files
+    files = list(root.rglob("*.py")) + list(root.rglob("*.ipynb"))
+    # Optional: sort files for a consistent order
+    files.sort(key=lambda p: p.as_posix())
+
+    with open(code_file, "w", encoding="utf-8") as code_out, open(list_file, "w", encoding="utf-8") as list_out:
+        for file_path in files:
+            # Write the file path to the directories file
+            list_out.write(f"{file_path}\n")
+            
+            # Write the file path header in the code file
+            code_out.write(f"# {file_path}\n")
+            
+            # Process the file according to its extension
+            if file_path.suffix == ".ipynb":
+                content = extract_content_from_ipynb(file_path)
+            else:
+                try:
+                    content = file_path.read_text(encoding="utf-8")
+                except Exception as e:
+                    content = f"# Error reading {file_path}: {e}"
+            
+            code_out.write(content)
+            code_out.write("\n\n")  # Add separation for readability
+
+if __name__ == "__main__":
+    # Adjust 'root_directory' if your repository root is different.
+    export_code_and_directory_list(root_directory=".", code_file="code.txt", list_file="directories.txt")
+
+

@@ -1,0 +1,858 @@
+# data.py
+from pathlib import Path
+import json
+
+def extract_content_from_ipynb(file_path: Path) -> str:
+    """
+    Extracts and concatenates the content of a Jupyter Notebook (.ipynb) file.
+    Both code cells and markdown cells are extracted, preserving the order.
+    Each cell is annotated with a header indicating its type.
+    """
+    try:
+        notebook = json.loads(file_path.read_text(encoding="utf-8"))
+        cells = notebook.get("cells", [])
+        content_lines = []
+        for idx, cell in enumerate(cells, start=1):
+            cell_type = cell.get("cell_type", "unknown")
+            # Add a header for this cell
+            if cell_type == "code":
+                content_lines.append(f"### Cell {idx}: Code")
+            elif cell_type == "markdown":
+                content_lines.append(f"### Cell {idx}: Markdown")
+            else:
+                content_lines.append(f"### Cell {idx}: {cell_type}")
+            # Join the source lines; they are typically stored as a list of lines.
+            source = "".join(cell.get("source", []))
+            content_lines.append(source)
+            content_lines.append("\n")  # Extra newline after each cell
+        return "\n".join(content_lines)
+    except Exception as e:
+        return f"# Error reading {file_path}: {e}"
+
+def export_code_and_directory_list(root_directory=".", code_file="code.txt", list_file="directories.txt"):
+    """
+    Traverses the given root directory to find all files with a .py or .ipynb extension.
+    Writes to two files:
+      - directories.txt: A list of the file paths.
+      - code.txt: Each file’s path (as header) followed by its content.
+        For .ipynb files, both code and markdown cells are included.
+    """
+    root = Path(root_directory)
+    # Collect both .py and .ipynb files
+    files = list(root.rglob("*.py")) + list(root.rglob("*.ipynb"))
+    # Optional: sort files for a consistent order
+    files.sort(key=lambda p: p.as_posix())
+
+    with open(code_file, "w", encoding="utf-8") as code_out, open(list_file, "w", encoding="utf-8") as list_out:
+        for file_path in files:
+            # Write the file path to the directories file
+            list_out.write(f"{file_path}\n")
+            
+            # Write the file path header in the code file
+            code_out.write(f"# {file_path}\n")
+            
+            # Process the file according to its extension
+            if file_path.suffix == ".ipynb":
+                content = extract_content_from_ipynb(file_path)
+            else:
+                try:
+                    content = file_path.read_text(encoding="utf-8")
+                except Exception as e:
+                    content = f"# Error reading {file_path}: {e}"
+            
+            code_out.write(content)
+            code_out.write("\n\n")  # Add separation for readability
+
+if __name__ == "__main__":
+    # Adjust 'root_directory' if your repository root is different.
+    export_code_and_directory_list(root_directory=".", code_file="code.txt", list_file="directories.txt")
+
+
+# oulu-sna-final-project-part-1.ipynb
+### Cell 1: Markdown
+# Task
+Project 19: News Popularity Dataset Analysis
+
+Analyze the Kaggle News Popularity dataset (Jan–Apr 2022, 9100 NYT tweets). The dataset includes tweet IDs, retweets, replies, likes, timestamps, and bag_of_phrases.
+
+Graph Construction & Analysis:
+
+NER Graph Construction: Use spaCy to extract named entities (person, organization, location) from bag_of_phrases. Connect tweets (nodes) sharing at least one entity. Plot histograms for entity counts by type.
+
+Degree Analysis: Use NetworkX to plot degree distribution. Create a table for max, min, avg degree centrality, and average path length.
+
+Centrality Metrics: Compute and plot betweenness and closeness centralities. Save scores. Analyze top nodes’ bag_of_phrases content.
+
+Clustering: Calculate and save clustering coefficients. Plot histogram (10 bins) of their distribution.
+
+Token Correlation: For Retweet, Reply, and Like counts, extract the top 10 tokens/entities. For the top and bottom 5 nodes by each metric, report the most frequent tokens/entities. Discuss correlations between content and popularity.
+
+Community Detection: Apply the Louvain algorithm to detect communities. Visualize with Gephi. Generate and plot word clouds for the three largest communities using concatenated bag_of_phrases.
+
+Attribute Correlation (1): Compute Pearson correlation + p-value between Retweet and Like, and Reply and Like counts.
+
+Attribute Correlation (2): Compute Pearson correlation + p-value between counts (Retweet, Reply, Like) and token count in bag_of_phrases.
+
+Simulation:
+
+Erdos Number Simulation: Use the highest-degree node as “Erdos.” Calculate other nodes' Erdos numbers. Save and plot the distribution.
+
+Literature Review:
+
+Summarize relevant research to contextualize findings (e.g., social network analysis, tweet virality, named entity influence on engagement).
+
+Here is all the data you need:
+"nytpopular_sample.csv"
+
+
+### Cell 2: Markdown
+## Data loading
+
+### Subtask:
+Load the "nytpopular_sample.csv" dataset.
+
+
+
+### Cell 3: Markdown
+**Reasoning**:
+Load the dataset and display the first 5 rows.
+
+
+
+
+### Cell 4: Code
+import pandas as pd
+
+df = pd.read_csv('/kaggle/input/newspopularity/nytpopular.csv').head(5000)
+display(df.head())
+
+
+### Cell 5: Markdown
+## Data exploration
+
+### Subtask:
+Explore the loaded dataset to understand its characteristics.
+
+
+
+### Cell 6: Markdown
+**Reasoning**:
+I need to explore the dataset by examining data types, missing values, distributions of key variables, and the overall shape of the DataFrame.
+
+
+
+
+### Cell 7: Code
+# Examine data types
+print("Data Types:\n", df.dtypes)
+
+# Check for missing values
+print("\nMissing Values:\n", df.isnull().sum())
+
+# Analyze distributions of key variables
+descriptive_stats = df[['retweet_count', 'reply_count', 'like_count']].describe()
+print("\nDescriptive Statistics:\n", descriptive_stats)
+
+# Visualize distributions (histograms)
+import matplotlib.pyplot as plt
+plt.figure(figsize=(15, 5))
+
+plt.subplot(1, 3, 1)
+plt.hist(df['retweet_count'], bins=20, color='skyblue')
+plt.title('Retweet Count Distribution')
+plt.xlabel('Retweet Count')
+plt.ylabel('Frequency')
+
+plt.subplot(1, 3, 2)
+plt.hist(df['reply_count'], bins=20, color='lightcoral')
+plt.title('Reply Count Distribution')
+plt.xlabel('Reply Count')
+plt.ylabel('Frequency')
+
+plt.subplot(1, 3, 3)
+plt.hist(df['like_count'], bins=20, color='lightgreen')
+plt.title('Like Count Distribution')
+plt.xlabel('Like Count')
+plt.ylabel('Frequency')
+
+plt.tight_layout()
+plt.show()
+
+# Analyze token count distribution in 'bag_of_phrases'
+df['token_count'] = df['bag_of_phrases'].apply(lambda x: len(eval(x)))
+print("\nToken Count Descriptive Statistics:\n", df['token_count'].describe())
+plt.figure(figsize=(8, 6))
+plt.hist(df['token_count'], bins=20, color='gold')
+plt.title('Token Count Distribution')
+plt.xlabel('Token Count')
+plt.ylabel('Frequency')
+plt.show()
+
+# Determine the shape of the DataFrame
+print("\nDataFrame Shape:", df.shape)
+
+# Identify potential issues (example: Outliers in retweet_count)
+print("\nPotential Issues:")
+print("Large variation of retweet counts (see histogram and descriptive statistics).")
+print("Missing 'url' column values might be a cause of concern.")
+
+
+### Cell 8: Markdown
+## Data preparation
+
+### Subtask:
+Prepare the 'bag_of_phrases' column for Named Entity Recognition (NER) processing.
+
+
+
+### Cell 9: Markdown
+**Reasoning**:
+Create a copy of the DataFrame and prepare the 'bag_of_phrases' column for NER processing by converting its elements to strings and handling potential issues.
+
+
+
+
+### Cell 10: Code
+import copy
+
+# Create a copy of the DataFrame
+df_ner = copy.deepcopy(df)
+
+# Ensure 'bag_of_phrases' column is of string type and handle potential issues
+def clean_bag_of_phrases(text):
+    if isinstance(text, list):
+        return ' '.join(map(str, text))
+    elif isinstance(text, str):
+        # Handle cases with single quotes and double quotes
+        text = text.replace("'", "")
+        text = text.replace('"', "")
+        # Remove special characters or symbols
+        return ''.join(c for c in text if c.isalnum() or c.isspace())
+    else:
+        return str(text)
+
+df_ner['bag_of_phrases'] = df_ner['bag_of_phrases'].apply(clean_bag_of_phrases)
+display(df_ner.head())
+
+
+### Cell 11: Markdown
+## Data wrangling
+
+### Subtask:
+Extract named entities (person, organization, location) from the 'bag_of_phrases' column using spaCy.
+
+
+
+### Cell 12: Markdown
+**Reasoning**:
+Extract named entities from the 'bag_of_phrases' column using spaCy and store them in a new 'entities' column in the df_ner DataFrame.
+
+
+
+
+### Cell 13: Markdown
+**Reasoning**:
+The previous code failed due to a `ValueError: Must have equal len keys and value when setting with an iterable`. This likely means the assignment to `df_ner.loc[index, 'entities']` was incorrect because the indexer `(index, 'entities')` does not have the same length as the `entities` list.  We need to ensure that when assigning the extracted named entities to the dataframe, the number of elements assigned correctly matches the dimensions of the dataframe.  We will correct the code to use `.at[]` instead of `.loc[]` for single value assignment.
+
+
+
+
+### Cell 14: Code
+import spacy
+
+# Load the spaCy English language model (en_core_web_sm)
+nlp = spacy.load("en_core_web_sm")
+
+# Create a new column 'entities' in the df_ner DataFrame to store extracted entities
+df_ner['entities'] = None
+
+# Iterate through the 'bag_of_phrases' column and extract named entities
+for index, row in df_ner.iterrows():
+    text = row['bag_of_phrases']
+    doc = nlp(text)
+    entities = [ent.text for ent in doc.ents if ent.label_ in ["PERSON", "ORG", "GPE"]]
+    df_ner.at[index, 'entities'] = entities
+
+# Display the first few rows of df_ner to verify the results
+display(df_ner.head())
+
+
+### Cell 15: Markdown
+## Feature engineering
+
+### Subtask:
+Construct a graph representing the relationships between tweets based on shared named entities.  Calculate degree centrality for each node.
+
+
+
+### Cell 16: Markdown
+**Reasoning**:
+Construct the graph using NetworkX, add edges based on shared entities, and compute degree centrality.
+
+
+
+
+### Cell 17: Code
+import networkx as nx
+
+# Create a graph
+graph = nx.Graph()
+
+# Add nodes to the graph (tweet IDs)
+graph.add_nodes_from(df_ner['id'])
+
+# Iterate through tweet pairs and add edges based on shared entities
+for i in range(len(df_ner)):
+    for j in range(i + 1, len(df_ner)):
+        tweet1_entities = set(df_ner.iloc[i]['entities'])
+        tweet2_entities = set(df_ner.iloc[j]['entities'])
+        if tweet1_entities.intersection(tweet2_entities):
+            graph.add_edge(df_ner.iloc[i]['id'], df_ner.iloc[j]['id'])
+
+# Calculate degree centrality
+degree_centrality = nx.degree_centrality(graph)
+
+# Store degree centrality in df_ner (optional)
+df_ner['degree_centrality'] = df_ner['id'].map(degree_centrality)
+display(df_ner.head())
+
+
+### Cell 18: Markdown
+## Data visualization
+
+### Subtask:
+Visualize the distribution of entity counts by type (person, organization, location).  Visualize the degree distribution of the constructed graph.
+
+
+
+### Cell 19: Markdown
+**Reasoning**:
+Plot the distribution of entity counts by type and the degree distribution of the graph.
+
+
+
+
+### Cell 20: Markdown
+# 2
+Use NetworkX to draw and plot the degree distribution of the above graph and highlight in a table the maximum, minimum and average degree centrality, average path length.
+
+
+### Cell 21: Code
+import matplotlib.pyplot as plt
+
+# Entity Count Histograms
+entity_types = ['PERSON', 'ORG', 'GPE']
+entity_counts = {'PERSON': [], 'ORG': [], 'GPE': []}
+
+for entities in df_ner['entities']:
+    if isinstance(entities, list):
+        for entity in entities:
+            doc = nlp(entity)
+            for ent in doc.ents:
+                if ent.label_ in entity_types:
+                    entity_counts[ent.label_].append(1)
+
+
+plt.figure(figsize=(15, 5))
+
+for i, entity_type in enumerate(entity_types):
+    plt.subplot(1, 3, i + 1)
+    plt.hist(entity_counts[entity_type], bins=10, color='skyblue')
+    plt.title(f'Distribution of {entity_type} Entities')
+    plt.xlabel('Entity Count')
+    plt.ylabel('Frequency')
+
+plt.tight_layout()
+plt.show()
+
+# Degree Distribution Plot
+import networkx as nx
+degree_sequence = [d for n, d in nx.degree(graph)]
+plt.figure(figsize=(8, 6))
+plt.hist(degree_sequence, bins=10, color='lightcoral')
+plt.title('Degree Distribution')
+plt.xlabel('Degree')
+plt.ylabel('Frequency')
+plt.show()
+
+
+### Cell 22: Markdown
+## Data analysis
+
+### Subtask:
+Calculate and store max, min, average degree centrality, and average path length of the graph. Compute betweenness and closeness centralities for all nodes and save the scores.
+
+
+
+### Cell 23: Markdown
+**Reasoning**:
+Calculate the max, min, and average degree centrality, average path length, betweenness centrality, and closeness centrality. Then, store the results and add them as new columns to the df_ner DataFrame.
+
+
+
+
+### Cell 24: Code
+import networkx as nx
+
+# Calculate graph metrics
+max_degree = max(dict(graph.degree()).values())
+min_degree = min(dict(graph.degree()).values())
+avg_degree = sum(dict(graph.degree()).values()) / len(graph.nodes)
+
+try:
+    avg_path_length = nx.average_shortest_path_length(graph)
+except nx.NetworkXError as e:
+    print(f"Error calculating average shortest path length: {e}")
+    avg_path_length = float('nan')  # Or handle the error as appropriate
+
+# Compute betweenness and closeness centralities
+betweenness_centrality = nx.betweenness_centrality(graph)
+closeness_centrality = nx.closeness_centrality(graph)
+
+# Print calculated metrics for verification
+print(f"Max Degree Centrality: {max_degree}")
+print(f"Min Degree Centrality: {min_degree}")
+print(f"Avg Degree Centrality: {avg_degree}")
+print(f"Avg Shortest Path Length: {avg_path_length}")
+
+# Print the first 5 entries of betweenness and closeness centralities
+print("\nBetweenness Centrality (first 5):", dict(list(betweenness_centrality.items())[:5]))
+print("\nCloseness Centrality (first 5):", dict(list(closeness_centrality.items())[:5]))
+
+# Add centrality scores to df_ner
+df_ner['betweenness_centrality'] = df_ner['id'].map(betweenness_centrality)
+df_ner['closeness_centrality'] = df_ner['id'].map(closeness_centrality)
+
+display(df_ner.head())
+
+
+### Cell 25: Markdown
+## Data visualization
+
+### Subtask:
+Visualize the betweenness and closeness centrality distributions. Create word clouds for the top nodes based on their bag_of_phrases content.
+
+
+
+### Cell 26: Markdown
+**Reasoning**:
+Visualize the betweenness and closeness centrality distributions using histograms and generate word clouds for the top 10 tweets based on betweenness centrality.
+
+
+
+
+### Cell 27: Markdown
+# 3
+Use NetworkX to calculate the betweenness degree and closeness centrality of each node and draw the associated betweenness degree distribution and closeness degree distribution. Save the result of the centrality scores in a file. Comment on the bag_of_phrases content of nodes with highest scores for betweenness and closeness centrality. 
+
+
+### Cell 28: Code
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+
+# Visualize centrality distributions
+plt.figure(figsize=(12, 5))
+
+plt.subplot(1, 2, 1)
+plt.hist(df_ner['betweenness_centrality'], bins=10, color='skyblue', edgecolor='black')
+plt.xlabel('Betweenness Centrality')
+plt.ylabel('Frequency')
+plt.title('Distribution of Betweenness Centrality')
+
+plt.subplot(1, 2, 2)
+plt.hist(df_ner['closeness_centrality'], bins=10, color='lightcoral', edgecolor='black')
+plt.xlabel('Closeness Centrality')
+plt.ylabel('Frequency')
+plt.title('Distribution of Closeness Centrality')
+
+plt.tight_layout()
+plt.show()
+
+# Word clouds for top 10 nodes by betweenness centrality
+top_10_tweets = df_ner.nlargest(10, 'betweenness_centrality')
+
+plt.figure(figsize=(20, 20))  # Adjust figure size for better visualization
+for i, (index, row) in enumerate(top_10_tweets.iterrows()):
+    text = row['bag_of_phrases']
+    wordcloud = WordCloud(width=400, height=300, background_color='white').generate(text)
+
+    plt.subplot(5, 2, i + 1)  # Create subplots for each word cloud
+    plt.imshow(wordcloud, interpolation='bilinear')
+    plt.axis("off")
+    plt.title(f"Tweet ID: {row['id']}")
+
+plt.tight_layout()
+plt.show()
+
+
+### Cell 29: Markdown
+## Data clustering
+
+### Subtask:
+Calculate and save the clustering coefficients for all nodes in the graph.
+
+
+
+### Cell 30: Markdown
+**Reasoning**:
+Calculate the clustering coefficient for each node in the graph using NetworkX and store it in the df_ner DataFrame.
+
+
+
+
+### Cell 31: Code
+import networkx as nx
+
+# Calculate clustering coefficients
+clustering_coefficients = nx.clustering(graph)
+
+# Add clustering coefficients to df_ner
+df_ner['clustering_coefficient'] = df_ner['id'].map(clustering_coefficients)
+
+# Display the first few rows of the updated DataFrame
+display(df_ner.head())
+
+
+### Cell 32: Markdown
+## Data visualization
+
+### Subtask:
+Visualize the distribution of clustering coefficients.
+
+
+
+### Cell 33: Markdown
+**Reasoning**:
+Visualize the distribution of clustering coefficients using a histogram with 10 bins.
+
+
+
+
+### Cell 34: Markdown
+# 4
+Use NetworkX clustering function to compute the clustering coefficient of each node and save the result in the same file. Consider a histogram of 10 bins on the values of the clustering coefficient and draw a plot showing the number of nodes falling in each bin
+
+
+### Cell 35: Code
+import matplotlib.pyplot as plt
+
+# Create the histogram
+plt.figure(figsize=(8, 6))
+plt.hist(df_ner['clustering_coefficient'], bins=10, color='skyblue', edgecolor='black')
+
+# Add labels and title
+plt.xlabel('Clustering Coefficient')
+plt.ylabel('Frequency')
+plt.title('Distribution of Clustering Coefficients')
+
+# Display the plot
+plt.show()
+
+
+### Cell 36: Markdown
+## Data analysis
+
+### Subtask:
+Identify the top 10 tokens/entities correlated with Retweet, Reply, and Like counts. For the top and bottom 5 nodes by each metric (Retweet, Reply, Like), determine the most frequent tokens/entities. Analyze correlations between content and popularity metrics.
+
+
+
+### Cell 37: Markdown
+**Reasoning**:
+Identify the top 10 tokens/entities for each popularity metric (Retweet, Reply, Like counts), find the top and bottom 5 tweets for each metric, and analyze the correlations between content and popularity.
+
+
+
+
+### Cell 38: Markdown
+**Reasoning**:
+The previous code failed due to a `SyntaxError` in the `eval()` function, likely because the 'bag_of_phrases' column contains strings that are not valid Python expressions.  I will modify the code to handle this issue by using `ast.literal_eval()` instead of `eval()`, and also address potential issues with the 'entities' column.
+
+
+
+
+### Cell 39: Markdown
+# 5.
+We want to test the extent to which some attributes correlate with other attributes of the network. For this purpose, initially, for attributes Retweet_count, Reply_count and
+Like_count, write a script that scrutinizes the 10 most frequent tokens in bag_of_sentences
+and named-entities for each case. Save the result in a file. Report in a table for the five
+highest score and five lowest scores in each attributes, the most frequent tokens and named- entity. Conclude whether some topics, tokens trigger popularity in terms of retweets, likes and reply. You may inspire from program available in NLP visualizations for clear, immediate insights into text data and outputs | by JP Hwang | Plotly | Medium.
+
+
+### Cell 40: Code
+import ast
+from collections import Counter
+
+def analyze_popularity(df, metric):
+    # Step 1: Top 10 tokens/entities for each metric
+    all_tokens = []
+    for index, row in df.iterrows():
+        try:
+            tokens = ast.literal_eval(row['bag_of_phrases'])
+        except (SyntaxError, ValueError):
+            tokens = []  # Handle invalid strings gracefully
+
+        entities = row['entities']
+        if entities is None:
+            entities = [] # Handle None values gracefully
+        elif not isinstance(entities, list):
+            entities = [] # Handle non-list values gracefully
+
+        all_tokens.extend(tokens)
+        all_tokens.extend(entities)
+
+    top_10_tokens = Counter(all_tokens).most_common(10)
+    print(f"Top 10 tokens/entities for {metric}: {top_10_tokens}")
+
+    # Step 2: Top and bottom 5 tweets by each metric
+    top_tweets = df.nlargest(5, metric)
+    bottom_tweets = df.nsmallest(5, metric)
+
+    # Step 3 & 4: Analyze token frequencies in top/bottom tweets
+    print(f"\nTop 5 tweets by {metric}:")
+    for index, row in top_tweets.iterrows():
+        try:
+            tokens = ast.literal_eval(row['bag_of_phrases'])
+        except (SyntaxError, ValueError):
+            tokens = []
+        entities = row['entities'] if row['entities'] is not None and isinstance(row['entities'], list) else []
+        all_tokens = tokens + entities
+        top_tokens_tweet = Counter(all_tokens).most_common(5)
+        print(f"Tweet ID: {row['id']}, {metric}: {row[metric]}, Top Tokens: {top_tokens_tweet}")
+
+    print(f"\nBottom 5 tweets by {metric}:")
+    for index, row in bottom_tweets.iterrows():
+        try:
+            tokens = ast.literal_eval(row['bag_of_phrases'])
+        except (SyntaxError, ValueError):
+            tokens = []
+        entities = row['entities'] if row['entities'] is not None and isinstance(row['entities'], list) else []
+        all_tokens = tokens + entities
+        top_tokens_tweet = Counter(all_tokens).most_common(5)
+        print(f"Tweet ID: {row['id']}, {metric}: {row[metric]}, Top Tokens: {top_tokens_tweet}")
+
+# Analyze each metric
+analyze_popularity(df_ner, 'retweet_count')
+analyze_popularity(df_ner, 'reply_count')
+analyze_popularity(df_ner, 'like_count')
+
+
+### Cell 41: Markdown
+## Data clustering
+
+### Subtask:
+Apply the Louvain algorithm to detect communities within the tweet network graph.
+
+
+
+### Cell 42: Markdown
+**Reasoning**:
+Apply the Louvain algorithm to detect communities and add the community assignments as a new column to the dataframe.
+
+
+
+
+### Cell 43: Markdown
+**Reasoning**:
+The previous code failed due to an incorrect import.  The `best_partition` function is not directly available in the `community` module.  It's located within the `community.community_louvain` submodule.  I will correct the import and try again.
+
+
+
+
+### Cell 44: Markdown
+# 6
+Write a program that uses Louvain algorithm in NetworkX to identify the various communities in the graph. Suggest appropriate visualization using Gelphi to highlight these communities. Write a program that concatenates all bag_of_sentences tokens of all nodes belonging to the same community and then use wordcloud (see Python Word Clouds Tutorial: How to Create a Word Cloud | DataCamp) to plot the wordcloud of the three largest communities in the graph.
+
+
+### Cell 45: Code
+import community.community_louvain as community_louvain
+
+# Assuming 'graph' is the NetworkX graph object created earlier
+partition = community_louvain.best_partition(graph)
+
+# Add community assignments to df_ner
+df_ner['community_id'] = df_ner['id'].map(partition)
+
+display(df_ner.head())
+
+
+### Cell 46: Markdown
+## Data visualization
+
+### Subtask:
+Visualize the detected communities in Gephi and generate word clouds for the three largest communities.
+
+
+
+### Cell 47: Markdown
+**Reasoning**:
+Export the graph data to a GraphML file, which is compatible with Gephi.  Then, identify the three largest communities, concatenate the bag_of_phrases for each, and generate word clouds.  Finally, display instructions for visualization in Gephi.
+
+
+
+
+### Cell 48: Code
+import networkx as nx
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+import pandas as pd
+
+# Export the graph to a GraphML file
+nx.write_graphml(graph, "tweet_network.graphml")
+
+# Identify the three largest communities
+community_counts = df_ner['community_id'].value_counts()
+top_three_communities = community_counts.nlargest(3).index
+
+# Generate word clouds for the top three communities
+plt.figure(figsize=(15, 10))
+for i, community_id in enumerate(top_three_communities):
+    community_tweets = df_ner[df_ner['community_id'] == community_id]
+    combined_text = ' '.join(community_tweets['bag_of_phrases'])
+    wordcloud = WordCloud(width=400, height=300, background_color='white').generate(combined_text)
+
+    plt.subplot(1, 3, i + 1)
+    plt.imshow(wordcloud, interpolation='bilinear')
+    plt.axis("off")
+    plt.title(f"Community {community_id}")
+
+plt.tight_layout()
+plt.show()
+
+print("\nGephi Visualization Instructions:")
+print("1. Open Gephi and import the 'tweet_network.graphml' file.")
+print("2. Go to the 'Appearance' panel and select the 'community_id' attribute for node coloring.")
+print("3. Choose a layout algorithm (e.g., Force Atlas 2) and adjust its parameters for optimal visualization.")
+print("4. Save the visualization as an image file (e.g., PNG).")
+
+
+### Cell 49: Markdown
+## Data analysis
+
+### Subtask:
+Compute Pearson correlation and p-values between Retweet and Like counts, and between Reply and Like counts.  Also, compute Pearson correlation and p-values between Retweet, Reply, and Like counts and the token count in bag_of_phrases.
+
+
+
+### Cell 50: Markdown
+**Reasoning**:
+Calculate the Pearson correlation and p-value between the specified columns using scipy.stats.pearsonr().
+
+
+
+
+### Cell 51: Markdown
+# 7 and 8
+7. Write a script that computes Pearson correlation and the associated p-value to evaluate the correlation between Retweet_count and Like_count, between Reply_count and Like_count.
+
+
+8. Write a script that computes Pearson correlation and the associated p-value to evaluate the correlation between retweent_count and Number of tokens in bag_of_phrases; between Reply_count and Number of tokens in bag_of_phrases; between Like_count and Number of tokens in bag_of_phrases.
+
+
+### Cell 52: Code
+from scipy.stats import pearsonr
+
+# Calculate correlations and p-values
+retweet_like_correlation, retweet_like_p_value = pearsonr(df_ner['retweet_count'], df_ner['like_count'])
+reply_like_correlation, reply_like_p_value = pearsonr(df_ner['reply_count'], df_ner['like_count'])
+retweet_token_correlation, retweet_token_p_value = pearsonr(df_ner['retweet_count'], df_ner['token_count'])
+reply_token_correlation, reply_token_p_value = pearsonr(df_ner['reply_count'], df_ner['token_count'])
+like_token_correlation, like_token_p_value = pearsonr(df_ner['like_count'], df_ner['token_count'])
+
+# Display the results
+print(f"{'Correlation':<20} {'P-value':<10}")
+print("-" * 30)
+print(f"Retweet vs. Like: {retweet_like_correlation:<10.4f} {retweet_like_p_value:<10.4f}")
+print(f"Reply vs. Like: {reply_like_correlation:<10.4f} {reply_like_p_value:<10.4f}")
+print(f"Retweet vs. Token Count: {retweet_token_correlation:<10.4f} {retweet_token_p_value:<10.4f}")
+print(f"Reply vs. Token Count: {reply_token_correlation:<10.4f} {reply_token_p_value:<10.4f}")
+print(f"Like vs. Token Count: {like_token_correlation:<10.4f} {like_token_p_value:<10.4f}")
+
+
+### Cell 53: Markdown
+## Data analysis
+
+### Subtask:
+Identify the node with the highest degree ("Erdos") in the graph. Calculate the Erdos numbers for all other nodes in the graph.
+
+
+
+### Cell 54: Markdown
+**Reasoning**:
+Identify the node with the highest degree and calculate Erdos numbers using BFS.
+
+
+
+
+### Cell 55: Code
+import networkx as nx
+
+# 1. Find the Erdos node (highest degree)
+degrees = dict(graph.degree())
+erdos_node = max(degrees, key=degrees.get)
+print(f"Erdos node: {erdos_node}")
+
+# 2. Calculate Erdos numbers using BFS
+erdos_numbers = nx.shortest_path_length(graph, source=erdos_node)
+
+# 3. Store Erdos numbers in df_ner
+df_ner['erdos_number'] = df_ner['id'].map(erdos_numbers).fillna(float('inf'))
+
+# 4. Summarize Erdos number distribution
+reachable_nodes = df_ner[df_ner['erdos_number'] != float('inf')]
+min_erdos = reachable_nodes['erdos_number'].min()
+max_erdos = reachable_nodes['erdos_number'].max()
+avg_erdos = reachable_nodes['erdos_number'].mean()
+unreachable_count = len(df_ner) - len(reachable_nodes)
+
+print(f"Minimum Erdos number: {min_erdos}")
+print(f"Maximum Erdos number: {max_erdos}")
+print(f"Average Erdos number: {avg_erdos}")
+print(f"Number of unreachable nodes: {unreachable_count}")
+
+display(df_ner.head())
+
+
+### Cell 56: Markdown
+## Data visualization
+
+### Subtask:
+Visualize the distribution of Erdos numbers.
+
+
+
+### Cell 57: Markdown
+**Reasoning**:
+Visualize the distribution of Erdos numbers using a histogram, excluding infinite values.
+
+
+
+
+### Cell 58: Markdown
+# 9. 
+Consider the node with the highest degree score playing the role of Erdos in Erdos
+number network. Write a script that calculates the Erdos number of each other node in the network and save the result in a file. Then draw the distribution of Erdos numbers of the underlined network
+
+
+### Cell 59: Code
+
+
+
+### Cell 60: Code
+import matplotlib.pyplot as plt
+
+# Create the histogram, excluding infinite Erdos numbers
+plt.figure(figsize=(8, 6))
+plt.hist(df_ner[df_ner['erdos_number'] != float('inf')]['erdos_number'], bins=10, color='skyblue', edgecolor='black')
+
+# Add labels and title
+plt.xlabel('Erdos Number')
+plt.ylabel('Frequency')
+plt.title('Distribution of Erdos Numbers')
+
+# Display the plot
+plt.show()
+
+
+

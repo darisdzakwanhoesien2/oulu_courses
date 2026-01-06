@@ -1,0 +1,1859 @@
+# autograder.py
+# autograder.py
+# -------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+# imports from python standard library
+import grading
+import importlib
+import optparse
+import os
+import re
+import sys
+import projectParams
+import random
+random.seed(0)
+try: 
+    from pacman import GameState
+except:
+    pass
+
+# register arguments and set default values
+def readCommand(argv):
+    parser = optparse.OptionParser(description = 'Run public tests on student code')
+    parser.set_defaults(generateSolutions=False, edxOutput=False, gsOutput=False, muteOutput=False, printTestCase=False, noGraphics=False)
+    parser.add_option('--test-directory',
+                      dest = 'testRoot',
+                      default = 'test_cases',
+                      help = 'Root test directory which contains subdirectories corresponding to each question')
+    parser.add_option('--student-code',
+                      dest = 'studentCode',
+                      default = projectParams.STUDENT_CODE_DEFAULT,
+                      help = 'comma separated list of student code files')
+    parser.add_option('--code-directory',
+                    dest = 'codeRoot',
+                    default = "",
+                    help = 'Root directory containing the student and testClass code')
+    parser.add_option('--test-case-code',
+                      dest = 'testCaseCode',
+                      default = projectParams.PROJECT_TEST_CLASSES,
+                      help = 'class containing testClass classes for this project')
+    parser.add_option('--generate-solutions',
+                      dest = 'generateSolutions',
+                      action = 'store_true',
+                      help = 'Write solutions generated to .solution file')
+    parser.add_option('--edx-output',
+                    dest = 'edxOutput',
+                    action = 'store_true',
+                    help = 'Generate edX output files')
+    parser.add_option('--gradescope-output',
+                    dest = 'gsOutput',
+                    action = 'store_true',
+                    help = 'Generate GradeScope output files')
+    parser.add_option('--mute',
+                    dest = 'muteOutput',
+                    action = 'store_true',
+                    help = 'Mute output from executing tests')
+    parser.add_option('--print-tests', '-p',
+                    dest = 'printTestCase',
+                    action = 'store_true',
+                    help = 'Print each test case before running them.')
+    parser.add_option('--test', '-t',
+                      dest = 'runTest',
+                      default = None,
+                      help = 'Run one particular test.  Relative to test root.')
+    parser.add_option('--question', '-q',
+                    dest = 'gradeQuestion',
+                    default = None,
+                    help = 'Grade one particular question.')
+    parser.add_option('--no-graphics',
+                    dest = 'noGraphics',
+                    action = 'store_true',
+                    help = 'No graphics display for pacman games.')
+    (options, args) = parser.parse_args(argv)
+    return options
+
+
+# confirm we should author solution files
+def confirmGenerate():
+    print('WARNING: this action will overwrite any solution files.')
+    print('Are you sure you want to proceed? (yes/no)')
+    while True:
+        ans = sys.stdin.readline().strip()
+        if ans == 'yes':
+            break
+        elif ans == 'no':
+            sys.exit(0)
+        else:
+            print('please answer either "yes" or "no"')
+
+
+# TODO: Fix this so that it tracebacks work correctly
+# Looking at source of the traceback module, presuming it works
+# the same as the intepreters, it uses co_filename.  This is,
+# however, a readonly attribute.
+def setModuleName(module, filename):
+    functionType = type(confirmGenerate)
+    classType = type(optparse.Option)
+
+    for i in dir(module):
+        o = getattr(module, i)
+        if hasattr(o, '__file__'): continue
+
+        if type(o) == functionType:
+            setattr(o, '__file__', filename)
+        elif type(o) == classType:
+            setattr(o, '__file__', filename)
+            # TODO: assign member __file__'s?
+        #print(i, type(o))
+
+
+#from cStringIO import StringIO
+
+import py_compile
+
+def loadModuleFile(moduleName, filePath):
+    with open(filePath, 'r') as f:
+        loader = importlib.machinery.SourceFileLoader(moduleName, "%s.py" % moduleName)
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        mod = importlib.util.module_from_spec(spec)
+        loader.exec_module(mod)
+        return mod
+
+
+def readFile(path, root=""):
+    "Read file from disk at specified path and return as string"
+    with open(os.path.join(root, path), 'r') as handle:
+        return handle.read()
+
+
+#######################################################################
+# Error Hint Map
+#######################################################################
+
+# TODO: use these
+ERROR_HINT_MAP = {
+  'q1': {
+    "<type 'exceptions.IndexError'>": """
+      We noticed that your project threw an IndexError on q1.
+      While many things may cause this, it may have been from
+      assuming a certain number of successors from a state space
+      or assuming a certain number of actions available from a given
+      state. Try making your code more general (no hardcoded indices)
+      and submit again!
+    """
+  },
+  'q3': {
+      "<type 'exceptions.AttributeError'>": """
+        We noticed that your project threw an AttributeError on q3.
+        While many things may cause this, it may have been from assuming
+        a certain size or structure to the state space. For example, if you have
+        a line of code assuming that the state is (x, y) and we run your code
+        on a state space with (x, y, z), this error could be thrown. Try
+        making your code more general and submit again!
+
+    """
+  }
+}
+
+import pprint
+
+def splitStrings(d):
+    d2 = dict(d)
+    for k in d:
+        if k[0:2] == "__":
+            del d2[k]
+            continue
+        if d2[k].find("\n") >= 0:
+            d2[k] = d2[k].split("\n")
+    return d2
+
+
+def printTest(testDict, solutionDict):
+    pp = pprint.PrettyPrinter(indent=4)
+    print("Test case:")
+    for line in testDict["__raw_lines__"]:
+        print("   |", line)
+    print("Solution:")
+    for line in solutionDict["__raw_lines__"]:
+        print("   |", line)
+
+
+def runTest(testName, moduleDict, printTestCase=False, display=None):
+    import testParser
+    import testClasses
+    for module in moduleDict:
+        setattr(sys.modules[__name__], module, moduleDict[module])
+
+    testDict = testParser.TestParser(testName + ".test").parse()
+    solutionDict = testParser.TestParser(testName + ".solution").parse()
+    test_out_file = os.path.join('%s.test_output' % testName)
+    testDict['test_out_file'] = test_out_file
+    testClass = getattr(projectTestClasses, testDict['class'])
+
+    questionClass = getattr(testClasses, 'Question')
+    question = questionClass({'max_points': 0}, display)
+    testCase = testClass(question, testDict)
+
+    if printTestCase:
+        printTest(testDict, solutionDict)
+
+    # This is a fragile hack to create a stub grades object
+    grades = grading.Grades(projectParams.PROJECT_NAME, [(None,0)])
+    testCase.execute(grades, moduleDict, solutionDict)
+
+
+# returns all the tests you need to run in order to run question
+def getDepends(testParser, testRoot, question):
+    allDeps = [question]
+    questionDict = testParser.TestParser(os.path.join(testRoot, question, 'CONFIG')).parse()
+    if 'depends' in questionDict:
+        depends = questionDict['depends'].split()
+        for d in depends:
+            # run dependencies first
+            allDeps = getDepends(testParser, testRoot, d) + allDeps
+    return allDeps
+
+# get list of questions to grade
+def getTestSubdirs(testParser, testRoot, questionToGrade):
+    problemDict = testParser.TestParser(os.path.join(testRoot, 'CONFIG')).parse()
+    if questionToGrade != None:
+        questions = getDepends(testParser, testRoot, questionToGrade)
+        if len(questions) > 1:
+            print('Note: due to dependencies, the following tests will be run: %s' % ' '.join(questions))
+        return questions
+    if 'order' in problemDict:
+        return problemDict['order'].split()
+    return sorted(os.listdir(testRoot))
+
+
+# evaluate student code
+def evaluate(generateSolutions, testRoot, moduleDict, exceptionMap=ERROR_HINT_MAP,
+             edxOutput=False, muteOutput=False, gsOutput=False,
+            printTestCase=False, questionToGrade=None, display=None):
+    # imports of testbench code.  note that the testClasses import must follow
+    # the import of student code due to dependencies
+    import testParser
+    import testClasses
+    for module in moduleDict:
+        setattr(sys.modules[__name__], module, moduleDict[module])
+
+    questions = []
+    questionDicts = {}
+    test_subdirs = getTestSubdirs(testParser, testRoot, questionToGrade)
+    for q in test_subdirs:
+        subdir_path = os.path.join(testRoot, q)
+        if not os.path.isdir(subdir_path) or q[0] == '.':
+            continue
+
+        # create a question object
+        questionDict = testParser.TestParser(os.path.join(subdir_path, 'CONFIG')).parse()
+        questionClass = getattr(testClasses, questionDict['class'])
+        question = questionClass(questionDict, display)
+        questionDicts[q] = questionDict
+
+        # load test cases into question
+        tests = filter(lambda t: re.match('[^#~.].*\.test\Z', t), os.listdir(subdir_path))
+        tests = map(lambda t: re.match('(.*)\.test\Z', t).group(1), tests)
+        for t in sorted(tests):
+            test_file = os.path.join(subdir_path, '%s.test' % t)
+            solution_file = os.path.join(subdir_path, '%s.solution' % t)
+            test_out_file = os.path.join(subdir_path, '%s.test_output' % t)
+            testDict = testParser.TestParser(test_file).parse()
+            if testDict.get("disabled", "false").lower() == "true":
+                continue
+            testDict['test_out_file'] = test_out_file
+            testClass = getattr(projectTestClasses, testDict['class'])
+            testCase = testClass(question, testDict)
+            def makefun(testCase, solution_file):
+                if generateSolutions:
+                    # write solution file to disk
+                    return lambda grades: testCase.writeSolution(moduleDict, solution_file)
+                else:
+                    # read in solution dictionary and pass as an argument
+                    testDict = testParser.TestParser(test_file).parse()
+                    solutionDict = testParser.TestParser(solution_file).parse()
+                    if printTestCase:
+                        return lambda grades: printTest(testDict, solutionDict) or testCase.execute(grades, moduleDict, solutionDict)
+                    else:
+                        return lambda grades: testCase.execute(grades, moduleDict, solutionDict)
+            question.addTestCase(testCase, makefun(testCase, solution_file))
+
+        # Note extra function is necessary for scoping reasons
+        def makefun(question):
+            return lambda grades: question.execute(grades)
+        setattr(sys.modules[__name__], q, makefun(question))
+        questions.append((q, question.getMaxPoints()))
+
+    grades = grading.Grades(projectParams.PROJECT_NAME, questions,
+                            gsOutput=gsOutput, edxOutput=edxOutput, muteOutput=muteOutput)
+    if questionToGrade == None:
+        for q in questionDicts:
+            for prereq in questionDicts[q].get('depends', '').split():
+                grades.addPrereq(q, prereq)
+
+    grades.grade(sys.modules[__name__], bonusPic = projectParams.BONUS_PIC)
+    return grades.points
+
+
+
+def getDisplay(graphicsByDefault, options=None):
+    graphics = graphicsByDefault
+    if options is not None and options.noGraphics:
+        graphics = False
+    if graphics:
+        try:
+            import graphicsDisplay
+            return graphicsDisplay.PacmanGraphics(1, frameTime=.05)
+        except ImportError:
+            pass
+    import textDisplay
+    return textDisplay.NullGraphics()
+
+
+
+
+if __name__ == '__main__':
+    options = readCommand(sys.argv)
+    if options.generateSolutions:
+        confirmGenerate()
+    codePaths = options.studentCode.split(',')
+    # moduleCodeDict = {}
+    # for cp in codePaths:
+    #     moduleName = re.match('.*?([^/]*)\.py', cp).group(1)
+    #     moduleCodeDict[moduleName] = readFile(cp, root=options.codeRoot)
+    # moduleCodeDict['projectTestClasses'] = readFile(options.testCaseCode, root=options.codeRoot)
+    # moduleDict = loadModuleDict(moduleCodeDict)
+
+    moduleDict = {}
+    for cp in codePaths:
+        moduleName = re.match('.*?([^/]*)\.py', cp).group(1)
+        moduleDict[moduleName] = loadModuleFile(moduleName, os.path.join(options.codeRoot, cp))
+    moduleName = re.match('.*?([^/]*)\.py', options.testCaseCode).group(1)
+    moduleDict['projectTestClasses'] = loadModuleFile(moduleName, os.path.join(options.codeRoot, options.testCaseCode))
+
+
+    if options.runTest != None:
+        runTest(options.runTest, moduleDict, printTestCase=options.printTestCase, display=getDisplay(True, options))
+    else:
+        evaluate(options.generateSolutions, options.testRoot, moduleDict,
+            gsOutput=options.gsOutput,
+            edxOutput=options.edxOutput, muteOutput=options.muteOutput, printTestCase=options.printTestCase,
+            questionToGrade=options.gradeQuestion, display=getDisplay(options.gradeQuestion!=None, options))
+
+
+# data.py
+from pathlib import Path
+import json
+
+def extract_content_from_ipynb(file_path: Path) -> str:
+    """
+    Extracts and concatenates the content of a Jupyter Notebook (.ipynb) file.
+    Both code cells and markdown cells are extracted, preserving the order.
+    Each cell is annotated with a header indicating its type.
+    """
+    try:
+        notebook = json.loads(file_path.read_text(encoding="utf-8"))
+        cells = notebook.get("cells", [])
+        content_lines = []
+        for idx, cell in enumerate(cells, start=1):
+            cell_type = cell.get("cell_type", "unknown")
+            if cell_type == "code":
+                content_lines.append(f"### Cell {idx}: Code")
+            elif cell_type == "markdown":
+                content_lines.append(f"### Cell {idx}: Markdown")
+            else:
+                content_lines.append(f"### Cell {idx}: {cell_type}")
+            source = "".join(cell.get("source", []))
+            content_lines.append(source)
+            content_lines.append("")  # blank line after each cell
+        return "\n".join(content_lines)
+    except Exception as e:
+        return f"# Error reading {file_path}: {e}"
+
+def export_code_and_directory_list(root_directory=".", base_code_file="code_part_", list_file="directories.txt", max_lines=5000):
+    """
+    Splits code output into multiple files, each with at most `max_lines` lines.
+    """
+    root = Path(root_directory)
+    files = list(root.rglob("*.py")) + list(root.rglob("*.ipynb"))
+    files.sort(key=lambda p: p.as_posix())
+
+    current_line_count = 0
+    part_index = 1
+    code_out = open(f"{base_code_file}{part_index}.txt", "w", encoding="utf-8")
+
+    with open(list_file, "w", encoding="utf-8") as list_out:
+        for file_path in files:
+            list_out.write(f"{file_path}\n")
+
+            header = f"# {file_path}"
+            if file_path.suffix == ".ipynb":
+                content = extract_content_from_ipynb(file_path)
+            else:
+                try:
+                    content = file_path.read_text(encoding="utf-8")
+                except Exception as e:
+                    content = f"# Error reading {file_path}: {e}"
+
+            full_block = f"{header}\n{content}\n\n"
+            lines_in_block = full_block.count("\n") + 1
+
+            # If the current file would exceed the max line limit, rotate to a new file
+            if current_line_count + lines_in_block > max_lines:
+                code_out.close()
+                part_index += 1
+                code_out = open(f"{base_code_file}{part_index}.txt", "w", encoding="utf-8")
+                current_line_count = 0
+
+            code_out.write(full_block)
+            current_line_count += lines_in_block
+
+    code_out.close()
+
+if __name__ == "__main__":
+    export_code_and_directory_list(
+        root_directory=".", 
+        base_code_file="code_part_",  # Will create files like code_part_1.txt, code_part_2.txt...
+        list_file="directories.txt",
+        max_lines=2000
+    )
+
+
+# eightpuzzle.py
+# eightpuzzle.py
+# --------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+import search
+import random
+
+# Module Classes
+
+class EightPuzzleState:
+    """
+    The Eight Puzzle is described in the course textbook on
+    page 64.
+
+    This class defines the mechanics of the puzzle itself.  The
+    task of recasting this puzzle as a search problem is left to
+    the EightPuzzleSearchProblem class.
+    """
+
+    def __init__( self, numbers ):
+        """
+          Constructs a new eight puzzle from an ordering of numbers.
+
+        numbers: a list of integers from 0 to 8 representing an
+          instance of the eight puzzle.  0 represents the blank
+          space.  Thus, the list
+
+            [1, 0, 2, 3, 4, 5, 6, 7, 8]
+
+          represents the eight puzzle:
+            -------------
+            | 1 |   | 2 |
+            -------------
+            | 3 | 4 | 5 |
+            -------------
+            | 6 | 7 | 8 |
+            ------------
+
+        The configuration of the puzzle is stored in a 2-dimensional
+        list (a list of lists) 'cells'.
+        """
+        self.cells = []
+        numbers = numbers[:] # Make a copy so as not to cause side-effects.
+        numbers.reverse()
+        for row in range( 3 ):
+            self.cells.append( [] )
+            for col in range( 3 ):
+                self.cells[row].append( numbers.pop() )
+                if self.cells[row][col] == 0:
+                    self.blankLocation = row, col
+
+    def isGoal( self ):
+        """
+          Checks to see if the puzzle is in its goal state.
+
+            -------------
+            |   | 1 | 2 |
+            -------------
+            | 3 | 4 | 5 |
+            -------------
+            | 6 | 7 | 8 |
+            -------------
+
+        >>> EightPuzzleState([0, 1, 2, 3, 4, 5, 6, 7, 8]).isGoal()
+        True
+
+        >>> EightPuzzleState([1, 0, 2, 3, 4, 5, 6, 7, 8]).isGoal()
+        False
+        """
+        current = 0
+        for row in range( 3 ):
+            for col in range( 3 ):
+                if current != self.cells[row][col]:
+                    return False
+                current += 1
+        return True
+
+    def legalMoves( self ):
+        """
+          Returns a list of legal moves from the current state.
+
+        Moves consist of moving the blank space up, down, left or right.
+        These are encoded as 'up', 'down', 'left' and 'right' respectively.
+
+        >>> EightPuzzleState([0, 1, 2, 3, 4, 5, 6, 7, 8]).legalMoves()
+        ['down', 'right']
+        """
+        moves = []
+        row, col = self.blankLocation
+        if(row != 0):
+            moves.append('up')
+        if(row != 2):
+            moves.append('down')
+        if(col != 0):
+            moves.append('left')
+        if(col != 2):
+            moves.append('right')
+        return moves
+
+    def result(self, move):
+        """
+          Returns a new eightPuzzle with the current state and blankLocation
+        updated based on the provided move.
+
+        The move should be a string drawn from a list returned by legalMoves.
+        Illegal moves will raise an exception, which may be an array bounds
+        exception.
+
+        NOTE: This function *does not* change the current object.  Instead,
+        it returns a new object.
+        """
+        row, col = self.blankLocation
+        if(move == 'up'):
+            newrow = row - 1
+            newcol = col
+        elif(move == 'down'):
+            newrow = row + 1
+            newcol = col
+        elif(move == 'left'):
+            newrow = row
+            newcol = col - 1
+        elif(move == 'right'):
+            newrow = row
+            newcol = col + 1
+        else:
+            raise "Illegal Move"
+
+        # Create a copy of the current eightPuzzle
+        newPuzzle = EightPuzzleState([0, 0, 0, 0, 0, 0, 0, 0, 0])
+        newPuzzle.cells = [values[:] for values in self.cells]
+        # And update it to reflect the move
+        newPuzzle.cells[row][col] = self.cells[newrow][newcol]
+        newPuzzle.cells[newrow][newcol] = self.cells[row][col]
+        newPuzzle.blankLocation = newrow, newcol
+
+        return newPuzzle
+
+    # Utilities for comparison and display
+    def __eq__(self, other):
+        """
+            Overloads '==' such that two eightPuzzles with the same configuration
+          are equal.
+
+          >>> EightPuzzleState([0, 1, 2, 3, 4, 5, 6, 7, 8]) == \
+              EightPuzzleState([1, 0, 2, 3, 4, 5, 6, 7, 8]).result('left')
+          True
+        """
+        for row in range( 3 ):
+            if self.cells[row] != other.cells[row]:
+                return False
+        return True
+
+    def __hash__(self):
+        return hash(str(self.cells))
+
+    def __getAsciiString(self):
+        """
+          Returns a display string for the maze
+        """
+        lines = []
+        horizontalLine = ('-' * (13))
+        lines.append(horizontalLine)
+        for row in self.cells:
+            rowLine = '|'
+            for col in row:
+                if col == 0:
+                    col = ' '
+                rowLine = rowLine + ' ' + col.__str__() + ' |'
+            lines.append(rowLine)
+            lines.append(horizontalLine)
+        return '\n'.join(lines)
+
+    def __str__(self):
+        return self.__getAsciiString()
+
+# TODO: Implement The methods in this class
+
+class EightPuzzleSearchProblem(search.SearchProblem):
+    """
+      Implementation of a SearchProblem for the  Eight Puzzle domain
+
+      Each state is represented by an instance of an eightPuzzle.
+    """
+    def __init__(self,puzzle):
+        "Creates a new EightPuzzleSearchProblem which stores search information."
+        self.puzzle = puzzle
+
+    def getStartState(self):
+        return puzzle
+
+    def isGoalState(self,state):
+        return state.isGoal()
+
+    def getSuccessors(self,state):
+        """
+          Returns list of (successor, action, stepCost) pairs where
+          each succesor is either left, right, up, or down
+          from the original state and the cost is 1.0 for each
+        """
+        succ = []
+        for a in state.legalMoves():
+            succ.append((state.result(a), a, 1))
+        return succ
+
+    def getCostOfActions(self, actions):
+        """
+         actions: A list of actions to take
+
+        This method returns the total cost of a particular sequence of actions.  The sequence must
+        be composed of legal moves
+        """
+        return len(actions)
+
+EIGHT_PUZZLE_DATA = [[1, 0, 2, 3, 4, 5, 6, 7, 8],
+                     [1, 7, 8, 2, 3, 4, 5, 6, 0],
+                     [4, 3, 2, 7, 0, 5, 1, 6, 8],
+                     [5, 1, 3, 4, 0, 2, 6, 7, 8],
+                     [1, 2, 5, 7, 6, 8, 0, 4, 3],
+                     [0, 3, 1, 6, 8, 2, 7, 5, 4]]
+
+def loadEightPuzzle(puzzleNumber):
+    """
+      puzzleNumber: The number of the eight puzzle to load.
+
+      Returns an eight puzzle object generated from one of the
+      provided puzzles in EIGHT_PUZZLE_DATA.
+
+      puzzleNumber can range from 0 to 5.
+
+      >>> print(loadEightPuzzle(0))
+      -------------
+      | 1 |   | 2 |
+      -------------
+      | 3 | 4 | 5 |
+      -------------
+      | 6 | 7 | 8 |
+      -------------
+    """
+    return EightPuzzleState(EIGHT_PUZZLE_DATA[puzzleNumber])
+
+def createRandomEightPuzzle(moves=100):
+    """
+      moves: number of random moves to apply
+
+      Creates a random eight puzzle by applying
+      a series of 'moves' random moves to a solved
+      puzzle.
+    """
+    puzzle = EightPuzzleState([0,1,2,3,4,5,6,7,8])
+    for i in range(moves):
+        # Execute a random legal move
+        puzzle = puzzle.result(random.sample(puzzle.legalMoves(), 1)[0])
+    return puzzle
+
+if __name__ == '__main__':
+    puzzle = createRandomEightPuzzle(25)
+    print('A random puzzle:')
+    print(puzzle)
+
+    problem = EightPuzzleSearchProblem(puzzle)
+    path = search.breadthFirstSearch(problem)
+    print('BFS found a path of %d moves: %s' % (len(path), str(path)))
+    curr = puzzle
+    i = 1
+    for a in path:
+        curr = curr.result(a)
+        print('After %d move%s: %s' % (i, ("", "s")[i>1], a))
+        print(curr)
+
+        input("Press return for the next state...")   # wait for key stroke
+        i += 1
+
+
+# game.py
+# game.py
+# -------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+# game.py
+# -------
+# Licensing Information: Please do not distribute or publish solutions to this
+# project. You are free to use and extend these projects for educational
+# purposes. The Pacman AI projects were developed at UC Berkeley, primarily by
+# John DeNero (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# For more info, see http://inst.eecs.berkeley.edu/~cs188/sp09/pacman.html
+
+from util import *
+import time, os
+import traceback
+import sys
+
+#######################
+# Parts worth reading #
+#######################
+
+class Agent:
+    """
+    An agent must define a getAction method, but may also define the
+    following methods which will be called if they exist:
+
+    def registerInitialState(self, state): # inspects the starting state
+    """
+    def __init__(self, index=0):
+        self.index = index
+
+    def getAction(self, state):
+        """
+        The Agent will receive a GameState (from either {pacman, capture, sonar}.py) and
+        must return an action from Directions.{North, South, East, West, Stop}
+        """
+        raiseNotDefined()
+
+class Directions:
+    NORTH = 'North'
+    SOUTH = 'South'
+    EAST = 'East'
+    WEST = 'West'
+    STOP = 'Stop'
+
+    LEFT =       {NORTH: WEST,
+                   SOUTH: EAST,
+                   EAST:  NORTH,
+                   WEST:  SOUTH,
+                   STOP:  STOP}
+
+    RIGHT =      dict([(y,x) for x, y in LEFT.items()])
+
+    REVERSE = {NORTH: SOUTH,
+               SOUTH: NORTH,
+               EAST: WEST,
+               WEST: EAST,
+               STOP: STOP}
+
+class Configuration:
+    """
+    A Configuration holds the (x,y) coordinate of a character, along with its
+    traveling direction.
+
+    The convention for positions, like a graph, is that (0,0) is the lower left corner, x increases
+    horizontally and y increases vertically.  Therefore, north is the direction of increasing y, or (0,1).
+    """
+
+    def __init__(self, pos, direction):
+        self.pos = pos
+        self.direction = direction
+
+    def getPosition(self):
+        return (self.pos)
+
+    def getDirection(self):
+        return self.direction
+
+    def isInteger(self):
+        x,y = self.pos
+        return x == int(x) and y == int(y)
+
+    def __eq__(self, other):
+        if other == None: return False
+        return (self.pos == other.pos and self.direction == other.direction)
+
+    def __hash__(self):
+        x = hash(self.pos)
+        y = hash(self.direction)
+        return hash(x + 13 * y)
+
+    def __str__(self):
+        return "(x,y)="+str(self.pos)+", "+str(self.direction)
+
+    def generateSuccessor(self, vector):
+        """
+        Generates a new configuration reached by translating the current
+        configuration by the action vector.  This is a low-level call and does
+        not attempt to respect the legality of the movement.
+
+        Actions are movement vectors.
+        """
+        x, y= self.pos
+        dx, dy = vector
+        direction = Actions.vectorToDirection(vector)
+        if direction == Directions.STOP:
+            direction = self.direction # There is no stop direction
+        return Configuration((x + dx, y+dy), direction)
+
+class AgentState:
+    """
+    AgentStates hold the state of an agent (configuration, speed, scared, etc).
+    """
+
+    def __init__( self, startConfiguration, isPacman ):
+        self.start = startConfiguration
+        self.configuration = startConfiguration
+        self.isPacman = isPacman
+        self.scaredTimer = 0
+        self.numCarrying = 0
+        self.numReturned = 0
+
+    def __str__( self ):
+        if self.isPacman:
+            return "Pacman: " + str( self.configuration )
+        else:
+            return "Ghost: " + str( self.configuration )
+
+    def __eq__( self, other ):
+        if other == None:
+            return False
+        return self.configuration == other.configuration and self.scaredTimer == other.scaredTimer
+
+    def __hash__(self):
+        return hash(hash(self.configuration) + 13 * hash(self.scaredTimer))
+
+    def copy( self ):
+        state = AgentState( self.start, self.isPacman )
+        state.configuration = self.configuration
+        state.scaredTimer = self.scaredTimer
+        state.numCarrying = self.numCarrying
+        state.numReturned = self.numReturned
+        return state
+
+    def getPosition(self):
+        if self.configuration == None: return None
+        return self.configuration.getPosition()
+
+    def getDirection(self):
+        return self.configuration.getDirection()
+
+class Grid:
+    """
+    A 2-dimensional array of objects backed by a list of lists.  Data is accessed
+    via grid[x][y] where (x,y) are positions on a Pacman map with x horizontal,
+    y vertical and the origin (0,0) in the bottom left corner.
+
+    The __str__ method constructs an output that is oriented like a pacman board.
+    """
+    def __init__(self, width, height, initialValue=False, bitRepresentation=None):
+        if initialValue not in [False, True]: raise Exception('Grids can only contain booleans')
+        self.CELLS_PER_INT = 30
+
+        self.width = width
+        self.height = height
+        self.data = [[initialValue for y in range(height)] for x in range(width)]
+        if bitRepresentation:
+            self._unpackBits(bitRepresentation)
+
+    def __getitem__(self, i):
+        return self.data[i]
+
+    def __setitem__(self, key, item):
+        self.data[key] = item
+
+    def __str__(self):
+        out = [[str(self.data[x][y])[0] for x in range(self.width)] for y in range(self.height)]
+        out.reverse()
+        return '\n'.join([''.join(x) for x in out])
+
+    def __eq__(self, other):
+        if other == None: return False
+        return self.data == other.data
+
+    def __hash__(self):
+        # return hash(str(self))
+        base = 1
+        h = 0
+        for l in self.data:
+            for i in l:
+                if i:
+                    h += base
+                base *= 2
+        return hash(h)
+
+    def copy(self):
+        g = Grid(self.width, self.height)
+        g.data = [x[:] for x in self.data]
+        return g
+
+    def deepCopy(self):
+        return self.copy()
+
+    def shallowCopy(self):
+        g = Grid(self.width, self.height)
+        g.data = self.data
+        return g
+
+    def count(self, item =True ):
+        return sum([x.count(item) for x in self.data])
+
+    def asList(self, key = True):
+        list = []
+        for x in range(self.width):
+            for y in range(self.height):
+                if self[x][y] == key: list.append( (x,y) )
+        return list
+
+    def packBits(self):
+        """
+        Returns an efficient int list representation
+
+        (width, height, bitPackedInts...)
+        """
+        bits = [self.width, self.height]
+        currentInt = 0
+        for i in range(self.height * self.width):
+            bit = self.CELLS_PER_INT - (i % self.CELLS_PER_INT) - 1
+            x, y = self._cellIndexToPosition(i)
+            if self[x][y]:
+                currentInt += 2 ** bit
+            if (i + 1) % self.CELLS_PER_INT == 0:
+                bits.append(currentInt)
+                currentInt = 0
+        bits.append(currentInt)
+        return tuple(bits)
+
+    def _cellIndexToPosition(self, index):
+        x = index // self.height
+        y = index % self.height
+        return x, y
+
+    def _unpackBits(self, bits):
+        """
+        Fills in data from a bit-level representation
+        """
+        cell = 0
+        for packed in bits:
+            for bit in self._unpackInt(packed, self.CELLS_PER_INT):
+                if cell == self.width * self.height: break
+                x, y = self._cellIndexToPosition(cell)
+                self[x][y] = bit
+                cell += 1
+
+    def _unpackInt(self, packed, size):
+        bools = []
+        if packed < 0: raise ValueError("must be a positive integer")
+        for i in range(size):
+            n = 2 ** (self.CELLS_PER_INT - i - 1)
+            if packed >= n:
+                bools.append(True)
+                packed -= n
+            else:
+                bools.append(False)
+        return bools
+
+def reconstituteGrid(bitRep):
+    if type(bitRep) is not type((1,2)):
+        return bitRep
+    width, height = bitRep[:2]
+    return Grid(width, height, bitRepresentation= bitRep[2:])
+
+####################################
+# Parts you shouldn't have to read #
+####################################
+
+class Actions:
+    """
+    A collection of static methods for manipulating move actions.
+    """
+    # Directions
+    _directions = {Directions.NORTH: (0, 1),
+                   Directions.SOUTH: (0, -1),
+                   Directions.EAST:  (1, 0),
+                   Directions.WEST:  (-1, 0),
+                   Directions.STOP:  (0, 0)}
+
+    _directionsAsList = _directions.items()
+
+    TOLERANCE = .001
+
+    def reverseDirection(action):
+        if action == Directions.NORTH:
+            return Directions.SOUTH
+        if action == Directions.SOUTH:
+            return Directions.NORTH
+        if action == Directions.EAST:
+            return Directions.WEST
+        if action == Directions.WEST:
+            return Directions.EAST
+        return action
+    reverseDirection = staticmethod(reverseDirection)
+
+    def vectorToDirection(vector):
+        dx, dy = vector
+        if dy > 0:
+            return Directions.NORTH
+        if dy < 0:
+            return Directions.SOUTH
+        if dx < 0:
+            return Directions.WEST
+        if dx > 0:
+            return Directions.EAST
+        return Directions.STOP
+    vectorToDirection = staticmethod(vectorToDirection)
+
+    def directionToVector(direction, speed = 1.0):
+        dx, dy =  Actions._directions[direction]
+        return (dx * speed, dy * speed)
+    directionToVector = staticmethod(directionToVector)
+
+    def getPossibleActions(config, walls):
+        possible = []
+        x, y = config.pos
+        x_int, y_int = int(x + 0.5), int(y + 0.5)
+
+        # In between grid points, all agents must continue straight
+        if (abs(x - x_int) + abs(y - y_int)  > Actions.TOLERANCE):
+            return [config.getDirection()]
+
+        for dir, vec in Actions._directionsAsList:
+            dx, dy = vec
+            next_y = y_int + dy
+            next_x = x_int + dx
+            if not walls[next_x][next_y]: possible.append(dir)
+
+        return possible
+
+    getPossibleActions = staticmethod(getPossibleActions)
+
+    def getLegalNeighbors(position, walls):
+        x,y = position
+        x_int, y_int = int(x + 0.5), int(y + 0.5)
+        neighbors = []
+        for dir, vec in Actions._directionsAsList:
+            dx, dy = vec
+            next_x = x_int + dx
+            if next_x < 0 or next_x == walls.width: continue
+            next_y = y_int + dy
+            if next_y < 0 or next_y == walls.height: continue
+            if not walls[next_x][next_y]: neighbors.append((next_x, next_y))
+        return neighbors
+    getLegalNeighbors = staticmethod(getLegalNeighbors)
+
+    def getSuccessor(position, action):
+        dx, dy = Actions.directionToVector(action)
+        x, y = position
+        return (x + dx, y + dy)
+    getSuccessor = staticmethod(getSuccessor)
+
+class GameStateData:
+    """
+
+    """
+    def __init__( self, prevState = None ):
+        """
+        Generates a new data packet by copying information from its predecessor.
+        """
+        if prevState != None:
+            self.food = prevState.food.shallowCopy()
+            self.capsules = prevState.capsules[:]
+            self.agentStates = self.copyAgentStates( prevState.agentStates )
+            self.layout = prevState.layout
+            self._eaten = prevState._eaten
+            self.score = prevState.score
+
+        self._foodEaten = None
+        self._foodAdded = None
+        self._capsuleEaten = None
+        self._agentMoved = None
+        self._lose = False
+        self._win = False
+        self.scoreChange = 0
+
+    def deepCopy( self ):
+        state = GameStateData( self )
+        state.food = self.food.deepCopy()
+        state.layout = self.layout.deepCopy()
+        state._agentMoved = self._agentMoved
+        state._foodEaten = self._foodEaten
+        state._foodAdded = self._foodAdded
+        state._capsuleEaten = self._capsuleEaten
+        return state
+
+    def copyAgentStates( self, agentStates ):
+        copiedStates = []
+        for agentState in agentStates:
+            copiedStates.append( agentState.copy() )
+        return copiedStates
+
+    def __eq__( self, other ):
+        """
+        Allows two states to be compared.
+        """
+        if other == None: return False
+        # TODO Check for type of other
+        if not self.agentStates == other.agentStates: return False
+        if not self.food == other.food: return False
+        if not self.capsules == other.capsules: return False
+        if not self.score == other.score: return False
+        return True
+
+    def __hash__( self ):
+        """
+        Allows states to be keys of dictionaries.
+        """
+        for i, state in enumerate( self.agentStates ):
+            try:
+                int(hash(state))
+            except TypeError as e:
+                print(e)
+                #hash(state)
+        return int((hash(tuple(self.agentStates)) + 13*hash(self.food) + 113* hash(tuple(self.capsules)) + 7 * hash(self.score)) % 1048575 )
+
+    def __str__( self ):
+        width, height = self.layout.width, self.layout.height
+        map = Grid(width, height)
+        if type(self.food) == type((1,2)):
+            self.food = reconstituteGrid(self.food)
+        for x in range(width):
+            for y in range(height):
+                food, walls = self.food, self.layout.walls
+                map[x][y] = self._foodWallStr(food[x][y], walls[x][y])
+
+        for agentState in self.agentStates:
+            if agentState == None: continue
+            if agentState.configuration == None: continue
+            x,y = [int( i ) for i in nearestPoint( agentState.configuration.pos )]
+            agent_dir = agentState.configuration.direction
+            if agentState.isPacman:
+                map[x][y] = self._pacStr( agent_dir )
+            else:
+                map[x][y] = self._ghostStr( agent_dir )
+
+        for x, y in self.capsules:
+            map[x][y] = 'o'
+
+        return str(map) + ("\nScore: %d\n" % self.score)
+
+    def _foodWallStr( self, hasFood, hasWall ):
+        if hasFood:
+            return '.'
+        elif hasWall:
+            return '%'
+        else:
+            return ' '
+
+    def _pacStr( self, dir ):
+        if dir == Directions.NORTH:
+            return 'v'
+        if dir == Directions.SOUTH:
+            return '^'
+        if dir == Directions.WEST:
+            return '>'
+        return '<'
+
+    def _ghostStr( self, dir ):
+        return 'G'
+        if dir == Directions.NORTH:
+            return 'M'
+        if dir == Directions.SOUTH:
+            return 'W'
+        if dir == Directions.WEST:
+            return '3'
+        return 'E'
+
+    def initialize( self, layout, numGhostAgents ):
+        """
+        Creates an initial game state from a layout array (see layout.py).
+        """
+        self.food = layout.food.copy()
+        #self.capsules = []
+        self.capsules = layout.capsules[:]
+        self.layout = layout
+        self.score = 0
+        self.scoreChange = 0
+
+        self.agentStates = []
+        numGhosts = 0
+        for isPacman, pos in layout.agentPositions:
+            if not isPacman:
+                if numGhosts == numGhostAgents: continue # Max ghosts reached already
+                else: numGhosts += 1
+            self.agentStates.append( AgentState( Configuration( pos, Directions.STOP), isPacman) )
+        self._eaten = [False for a in self.agentStates]
+
+try:
+    import boinc
+    _BOINC_ENABLED = True
+except:
+    _BOINC_ENABLED = False
+
+class Game:
+    """
+    The Game manages the control flow, soliciting actions from agents.
+    """
+
+    def __init__( self, agents, display, rules, startingIndex=0, muteAgents=False, catchExceptions=False ):
+        self.agentCrashed = False
+        self.agents = agents
+        self.display = display
+        self.rules = rules
+        self.startingIndex = startingIndex
+        self.gameOver = False
+        self.muteAgents = muteAgents
+        self.catchExceptions = catchExceptions
+        self.moveHistory = []
+        self.totalAgentTimes = [0 for agent in agents]
+        self.totalAgentTimeWarnings = [0 for agent in agents]
+        self.agentTimeout = False
+        import io
+        self.agentOutput = [io.StringIO() for agent in agents]
+
+    def getProgress(self):
+        if self.gameOver:
+            return 1.0
+        else:
+            return self.rules.getProgress(self)
+
+    def _agentCrash( self, agentIndex, quiet=False):
+        "Helper method for handling agent crashes"
+        if not quiet: traceback.print_exc()
+        self.gameOver = True
+        self.agentCrashed = True
+        self.rules.agentCrash(self, agentIndex)
+
+    OLD_STDOUT = None
+    OLD_STDERR = None
+
+    def mute(self, agentIndex):
+        if not self.muteAgents: return
+        global OLD_STDOUT, OLD_STDERR
+        import io
+        OLD_STDOUT = sys.stdout
+        OLD_STDERR = sys.stderr
+        sys.stdout = self.agentOutput[agentIndex]
+        sys.stderr = self.agentOutput[agentIndex]
+
+    def unmute(self):
+        if not self.muteAgents: return
+        global OLD_STDOUT, OLD_STDERR
+        # Revert stdout/stderr to originals
+        sys.stdout = OLD_STDOUT
+        sys.stderr = OLD_STDERR
+
+
+    def run( self ):
+        """
+        Main control loop for game play.
+        """
+        self.display.initialize(self.state.data)
+        self.numMoves = 0
+
+        ###self.display.initialize(self.state.makeObservation(1).data)
+        # inform learning agents of the game start
+        for i in range(len(self.agents)):
+            agent = self.agents[i]
+            if not agent:
+                self.mute(i)
+                # this is a null agent, meaning it failed to load
+                # the other team wins
+                print("Agent %d failed to load" % i, file=sys.stderr)
+                self.unmute()
+                self._agentCrash(i, quiet=True)
+                return
+            if ("registerInitialState" in dir(agent)):
+                self.mute(i)
+                if self.catchExceptions:
+                    try:
+                        timed_func = TimeoutFunction(agent.registerInitialState, int(self.rules.getMaxStartupTime(i)))
+                        try:
+                            start_time = time.time()
+                            timed_func(self.state.deepCopy())
+                            time_taken = time.time() - start_time
+                            self.totalAgentTimes[i] += time_taken
+                        except TimeoutFunctionException:
+                            print("Agent %d ran out of time on startup!" % i, file=sys.stderr)
+                            self.unmute()
+                            self.agentTimeout = True
+                            self._agentCrash(i, quiet=True)
+                            return
+                    except Exception as data:
+                        self._agentCrash(i, quiet=False)
+                        self.unmute()
+                        return
+                else:
+                    agent.registerInitialState(self.state.deepCopy())
+                ## TODO: could this exceed the total time
+                self.unmute()
+
+        agentIndex = self.startingIndex
+        numAgents = len( self.agents )
+
+        while not self.gameOver:
+            # Fetch the next agent
+            agent = self.agents[agentIndex]
+            move_time = 0
+            skip_action = False
+            # Generate an observation of the state
+            if 'observationFunction' in dir( agent ):
+                self.mute(agentIndex)
+                if self.catchExceptions:
+                    try:
+                        timed_func = TimeoutFunction(agent.observationFunction, int(self.rules.getMoveTimeout(agentIndex)))
+                        try:
+                            start_time = time.time()
+                            observation = timed_func(self.state.deepCopy())
+                        except TimeoutFunctionException:
+                            skip_action = True
+                        move_time += time.time() - start_time
+                        self.unmute()
+                    except Exception as data:
+                        self._agentCrash(agentIndex, quiet=False)
+                        self.unmute()
+                        return
+                else:
+                    observation = agent.observationFunction(self.state.deepCopy())
+                self.unmute()
+            else:
+                observation = self.state.deepCopy()
+
+            # Solicit an action
+            action = None
+            self.mute(agentIndex)
+            if self.catchExceptions:
+                try:
+                    timed_func = TimeoutFunction(agent.getAction, int(self.rules.getMoveTimeout(agentIndex)) - int(move_time))
+                    try:
+                        start_time = time.time()
+                        if skip_action:
+                            raise TimeoutFunctionException()
+                        action = timed_func( observation )
+                    except TimeoutFunctionException:
+                        print("Agent %d timed out on a single move!" % agentIndex, file=sys.stderr)
+                        self.agentTimeout = True
+                        self._agentCrash(agentIndex, quiet=True)
+                        self.unmute()
+                        return
+
+                    move_time += time.time() - start_time
+
+                    if move_time > self.rules.getMoveWarningTime(agentIndex):
+                        self.totalAgentTimeWarnings[agentIndex] += 1
+                        print("Agent %d took too long to make a move! This is warning %d" % (agentIndex, self.totalAgentTimeWarnings[agentIndex]), file=sys.stderr)
+                        if self.totalAgentTimeWarnings[agentIndex] > self.rules.getMaxTimeWarnings(agentIndex):
+                            print("Agent %d exceeded the maximum number of warnings: %d" % (agentIndex, self.totalAgentTimeWarnings[agentIndex]), file=sys.stderr)
+                            self.agentTimeout = True
+                            self._agentCrash(agentIndex, quiet=True)
+                            self.unmute()
+                            return
+
+                    self.totalAgentTimes[agentIndex] += move_time
+                    #print("Agent: %d, time: %f, total: %f" % (agentIndex, move_time, self.totalAgentTimes[agentIndex]))
+                    if self.totalAgentTimes[agentIndex] > self.rules.getMaxTotalTime(agentIndex):
+                        print("Agent %d ran out of time! (time: %1.2f)" % (agentIndex, self.totalAgentTimes[agentIndex]), file=sys.stderr)
+                        self.agentTimeout = True
+                        self._agentCrash(agentIndex, quiet=True)
+                        self.unmute()
+                        return
+                    self.unmute()
+                except Exception as data:
+                    self._agentCrash(agentIndex)
+                    self.unmute()
+                    return
+            else:
+                action = agent.getAction(observation)
+            self.unmute()
+
+            # Execute the action
+            self.moveHistory.append( (agentIndex, action) )
+            if self.catchExceptions:
+                try:
+                    self.state = self.state.generateSuccessor( agentIndex, action )
+                except Exception as data:
+                    self.mute(agentIndex)
+                    self._agentCrash(agentIndex)
+                    self.unmute()
+                    return
+            else:
+                self.state = self.state.generateSuccessor( agentIndex, action )
+
+            # Change the display
+            self.display.update( self.state.data )
+            ###idx = agentIndex - agentIndex % 2 + 1
+            ###self.display.update( self.state.makeObservation(idx).data )
+
+            # Allow for game specific conditions (winning, losing, etc.)
+            self.rules.process(self.state, self)
+            # Track progress
+            if agentIndex == numAgents + 1: self.numMoves += 1
+            # Next agent
+            agentIndex = ( agentIndex + 1 ) % numAgents
+
+            if _BOINC_ENABLED:
+                boinc.set_fraction_done(self.getProgress())
+
+        # inform a learning agent of the game result
+        for agentIndex, agent in enumerate(self.agents):
+            if "final" in dir( agent ) :
+                try:
+                    self.mute(agentIndex)
+                    agent.final( self.state )
+                    self.unmute()
+                except Exception as data:
+                    if not self.catchExceptions: raise data
+                    self._agentCrash(agentIndex)
+                    self.unmute()
+                    return
+        self.display.finish()
+
+
+# ghostAgents.py
+# ghostAgents.py
+# --------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+from game import Agent
+from game import Actions
+from game import Directions
+import random
+from util import manhattanDistance
+import util
+
+class GhostAgent( Agent ):
+    def __init__( self, index ):
+        self.index = index
+
+    def getAction( self, state ):
+        dist = self.getDistribution(state)
+        if len(dist) == 0:
+            return Directions.STOP
+        else:
+            return util.chooseFromDistribution( dist )
+
+    def getDistribution(self, state):
+        "Returns a Counter encoding a distribution over actions from the provided state."
+        util.raiseNotDefined()
+
+class RandomGhost( GhostAgent ):
+    "A ghost that chooses a legal action uniformly at random."
+    def getDistribution( self, state ):
+        dist = util.Counter()
+        for a in state.getLegalActions( self.index ): dist[a] = 1.0
+        dist.normalize()
+        return dist
+
+class DirectionalGhost( GhostAgent ):
+    "A ghost that prefers to rush Pacman, or flee when scared."
+    def __init__( self, index, prob_attack=0.8, prob_scaredFlee=0.8 ):
+        self.index = index
+        self.prob_attack = prob_attack
+        self.prob_scaredFlee = prob_scaredFlee
+
+    def getDistribution( self, state ):
+        # Read variables from state
+        ghostState = state.getGhostState( self.index )
+        legalActions = state.getLegalActions( self.index )
+        pos = state.getGhostPosition( self.index )
+        isScared = ghostState.scaredTimer > 0
+
+        speed = 1
+        if isScared: speed = 0.5
+
+        actionVectors = [Actions.directionToVector( a, speed ) for a in legalActions]
+        newPositions = [( pos[0]+a[0], pos[1]+a[1] ) for a in actionVectors]
+        pacmanPosition = state.getPacmanPosition()
+
+        # Select best actions given the state
+        distancesToPacman = [manhattanDistance( pos, pacmanPosition ) for pos in newPositions]
+        if isScared:
+            bestScore = max( distancesToPacman )
+            bestProb = self.prob_scaredFlee
+        else:
+            bestScore = min( distancesToPacman )
+            bestProb = self.prob_attack
+        bestActions = [action for action, distance in zip( legalActions, distancesToPacman ) if distance == bestScore]
+
+        # Construct distribution
+        dist = util.Counter()
+        for a in bestActions: dist[a] = bestProb / len(bestActions)
+        for a in legalActions: dist[a] += ( 1-bestProb ) / len(legalActions)
+        dist.normalize()
+        return dist
+
+
+# grading.py
+# grading.py
+# ----------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
+# 
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+
+
+"Common code for autograders"
+
+import cgi
+import time
+import sys
+import json
+import traceback
+import pdb
+from collections import defaultdict
+import util
+import html
+
+class Grades:
+  "A data structure for project grades, along with formatting code to display them"
+  def __init__(self, projectName, questionsAndMaxesList,
+               gsOutput=False, edxOutput=False, muteOutput=False):
+    """
+    Defines the grading scheme for a project
+      projectName: project name
+      questionsAndMaxesDict: a list of (question name, max points per question)
+    """
+    self.questions = [el[0] for el in questionsAndMaxesList]
+    self.maxes = dict(questionsAndMaxesList)
+    self.points = Counter()
+    self.messages = dict([(q, []) for q in self.questions])
+    self.project = projectName
+    self.start = time.localtime()[1:6]
+    self.sane = True # Sanity checks
+    self.currentQuestion = None # Which question we're grading
+    self.edxOutput = edxOutput
+    self.gsOutput = gsOutput  # GradeScope output
+    self.mute = muteOutput
+    self.prereqs = defaultdict(set)
+
+    #print('Autograder transcript for %s' % self.project)
+    print('Starting on %d-%d at %d:%02d:%02d' % self.start)
+
+  def addPrereq(self, question, prereq):
+    self.prereqs[question].add(prereq)
+
+  def grade(self, gradingModule, exceptionMap = {}, bonusPic = False):
+    """
+    Grades each question
+      gradingModule: the module with all the grading functions (pass in with sys.modules[__name__])
+    """
+
+    completedQuestions = set([])
+    for q in self.questions:
+      print('\nQuestion %s' % q)
+      print('=' * (9 + len(q)))
+      print
+      self.currentQuestion = q
+
+      incompleted = self.prereqs[q].difference(completedQuestions)
+      if len(incompleted) > 0:
+          prereq = incompleted.pop()
+          print(
+"""*** NOTE: Make sure to complete Question %s before working on Question %s,
+*** because Question %s builds upon your answer for Question %s.
+""" % (prereq, q, q, prereq))
+          continue
+
+      if self.mute: util.mutePrint()
+      try:
+        util.TimeoutFunction(getattr(gradingModule, q),1800)(self) # Call the question's function
+        #TimeoutFunction(getattr(gradingModule, q),1200)(self) # Call the question's function
+      except Exception as inst:
+        self.addExceptionMessage(q, inst, traceback)
+        self.addErrorHints(exceptionMap, inst, q[1])
+      except:
+        self.fail('FAIL: Terminated with a string exception.')
+      finally:
+        if self.mute: util.unmutePrint()
+
+      if self.points[q] >= self.maxes[q]:
+        completedQuestions.add(q)
+
+      print('\n### Question %s: %d/%d ###\n' % (q, self.points[q], self.maxes[q]))
+
+
+    print('\nFinished at %d:%02d:%02d' % time.localtime()[3:6])
+    print("\nProvisional grades\n==================")
+
+    for q in self.questions:
+      print('Question %s: %d/%d' % (q, self.points[q], self.maxes[q]))
+    print('------------------')
+    print('Total: %d/%d' % (self.points.totalCount(), sum(self.maxes.values())))
+    if bonusPic and self.points.totalCount() == 25:
+      print("""
+
+                     ALL HAIL GRANDPAC.
+              LONG LIVE THE GHOSTBUSTING KING.
+
+                  ---      ----      ---
+                  |  \    /  + \    /  |
+                  | + \--/      \--/ + |
+                  |   +     +          |
+                  | +     +        +   |
+                @@@@@@@@@@@@@@@@@@@@@@@@@@
+              @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+            @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+            @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+            \   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+             \ /  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+              V   \   @@@@@@@@@@@@@@@@@@@@@@@@@@@@
+                   \ /  @@@@@@@@@@@@@@@@@@@@@@@@@@
+                    V     @@@@@@@@@@@@@@@@@@@@@@@@
+                            @@@@@@@@@@@@@@@@@@@@@@
+                    /\      @@@@@@@@@@@@@@@@@@@@@@
+                   /  \  @@@@@@@@@@@@@@@@@@@@@@@@@
+              /\  /    @@@@@@@@@@@@@@@@@@@@@@@@@@@
+             /  \ @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+            /    @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+            @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+            @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+              @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+                @@@@@@@@@@@@@@@@@@@@@@@@@@
+                    @@@@@@@@@@@@@@@@@@
+
+""")
+    print("""
+Your grades are NOT yet registered.  To register your grades, make sure
+to follow your instructor's guidelines to receive credit on your project.
+""")
+
+    if self.edxOutput:
+        self.produceOutput()
+    if self.gsOutput:
+        self.produceGradeScopeOutput()
+
+  def addExceptionMessage(self, q, inst, traceback):
+    """
+    Method to format the exception message, this is more complicated because
+    we need to cgi.escape the traceback but wrap the exception in a <pre> tag
+    """
+    self.fail('FAIL: Exception raised: %s' % inst)
+    self.addMessage('')
+    for line in traceback.format_exc().split('\n'):
+        self.addMessage(line)
+
+  def addErrorHints(self, exceptionMap, errorInstance, questionNum):
+    typeOf = str(type(errorInstance))
+    questionName = 'q' + questionNum
+    errorHint = ''
+
+    # question specific error hints
+    if exceptionMap.get(questionName):
+      questionMap = exceptionMap.get(questionName)
+      if (questionMap.get(typeOf)):
+        errorHint = questionMap.get(typeOf)
+    # fall back to general error messages if a question specific
+    # one does not exist
+    if (exceptionMap.get(typeOf)):
+      errorHint = exceptionMap.get(typeOf)
+
+    # dont include the HTML if we have no error hint
+    if not errorHint:
+      return ''
+
+    for line in errorHint.split('\n'):
+      self.addMessage(line)
+
+  def produceGradeScopeOutput(self):
+    out_dct = {}
+
+    # total of entire submission
+    total_possible = sum(self.maxes.values())
+    total_score = sum(self.points.values())
+    out_dct['score'] = total_score
+    out_dct['max_score'] = total_possible
+    out_dct['output'] = "Total score (%d / %d)" % (total_score, total_possible)
+
+    # individual tests
+    tests_out = []
+    for name in self.questions:
+      test_out = {}
+      # test name
+      test_out['name'] = name
+      # test score
+      test_out['score'] = self.points[name]
+      test_out['max_score'] = self.maxes[name]
+      # others
+      is_correct = self.points[name] >= self.maxes[name]
+      test_out['output'] = "  Question {num} ({points}/{max}) {correct}".format(
+          num=(name[1] if len(name) == 2 else name),
+          points=test_out['score'],
+          max=test_out['max_score'],
+          correct=('X' if not is_correct else ''),
+      )
+      test_out['tags'] = []
+      tests_out.append(test_out)
+    out_dct['tests'] = tests_out
+
+    # file output
+    with open('gradescope_response.json', 'w') as outfile:
+        json.dump(out_dct, outfile)
+    return
+
+  def produceOutput(self):
+    edxOutput = open('edx_response.html', 'w')
+    edxOutput.write("<div>")
+
+    # first sum
+    total_possible = sum(self.maxes.values())
+    total_score = sum(self.points.values())
+    checkOrX = '<span class="incorrect"/>'
+    if (total_score >= total_possible):
+        checkOrX = '<span class="correct"/>'
+    header = """
+        <h3>
+            Total score ({total_score} / {total_possible})
+        </h3>
+    """.format(total_score = total_score,
+      total_possible = total_possible,
+      checkOrX = checkOrX
+    )
+    edxOutput.write(header)
+
+    for q in self.questions:
+      if len(q) == 2:
+          name = q[1]
+      else:
+          name = q
+      checkOrX = '<span class="incorrect"/>'
+      if (self.points[q] >= self.maxes[q]):
+        checkOrX = '<span class="correct"/>'
+      #messages = '\n<br/>\n'.join(self.messages[q])
+      messages = "<pre>%s</pre>" % '\n'.join(self.messages[q])
+      output = """
+        <div class="test">
+          <section>
+          <div class="shortform">
+            Question {q} ({points}/{max}) {checkOrX}
+          </div>
+        <div class="longform">
+          {messages}
+        </div>
+        </section>
+      </div>
+      """.format(q = name,
+        max = self.maxes[q],
+        messages = messages,
+        checkOrX = checkOrX,
+        points = self.points[q]
+      )
+      # print("*** output for Question %s " % q[1])
+      # print(output)
+      edxOutput.write(output)
+    edxOutput.write("</div>")
+    edxOutput.close()
+    edxOutput = open('edx_grade', 'w')
+    edxOutput.write(str(self.points.totalCount()))
+    edxOutput.close()
+
+  def fail(self, message, raw=False):
+    "Sets sanity check bit to false and outputs a message"
+    self.sane = False
+    self.assignZeroCredit()
+    self.addMessage(message, raw)
+
+  def assignZeroCredit(self):
+    self.points[self.currentQuestion] = 0
+
+  def addPoints(self, amt):
+    self.points[self.currentQuestion] += amt
+
+  def deductPoints(self, amt):
+    self.points[self.currentQuestion] -= amt
+
+  def assignFullCredit(self, message="", raw=False):
+    self.points[self.currentQuestion] = self.maxes[self.currentQuestion]
+    if message != "":
+      self.addMessage(message, raw)
+
+  def addMessage(self, message, raw=False):
+    if not raw:
+        # We assume raw messages, formatted for HTML, are printed separately
+        if self.mute: util.unmutePrint()
+        print('*** ' + message)
+        if self.mute: util.mutePrint()
+        message = html.escape(message)
+    self.messages[self.currentQuestion].append(message)
+
+  def addMessageToEmail(self, message):
+    print("WARNING**** addMessageToEmail is deprecated %s" % message)
+    for line in message.split('\n'):
+      pass
+      #print('%%% ' + line + ' %%%')
+      #self.messages[self.currentQuestion].append(line)
+
+
+
+
+
+class Counter(dict):
+  """
+  Dict with default 0
+  """
+  def __getitem__(self, idx):
+    try:
+      return dict.__getitem__(self, idx)
+    except KeyError:
+      return 0
+
+  def totalCount(self):
+    """
+    Returns the sum of counts for all keys.
+    """
+    return sum(self.values())
+
+
+

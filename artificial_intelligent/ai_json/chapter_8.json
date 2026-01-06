@@ -1,0 +1,75 @@
+{
+    "course_name": "Artificial Intelligence (521495A)",
+    "topic_name": "Machine Learning I: Overview and Naïve Bayes",
+    "topics": [
+      {
+        "title": "Machine Learning",
+        "slides": [2],
+        "overview": "Introduction to machine learning concepts, learning from data, parameters, and structures.",
+        "summary": "Machine learning involves acquiring models from data, learning parameters, structures, and hidden concepts."
+      },
+      {
+        "title": "Supervised Learning",
+        "slides": [5],
+        "overview": "Learning from labeled examples through classification and regression.",
+        "summary": "Supervised learning uses labeled data to discover functions for classification and regression."
+      },
+      {
+        "title": "Statistical Learning",
+        "slides": [6],
+        "overview": "Learning as a form of probabilistic inference, Bayesian learning, MAP, ML.",
+        "summary": "Statistical learning involves probabilistic inference using Bayes’ theorem, maximum a posteriori (MAP), and maximum likelihood (ML)."
+      },
+      {
+        "title": "Naïve Bayes Classification",
+        "slides": [13, 14, 15],
+        "overview": "A simplistic probabilistic model assuming feature independence.",
+        "summary": "Naïve Bayes is a classification algorithm that assumes conditional independence of features given a class."
+      },
+      {
+        "title": "Training and Testing",
+        "slides": [21, 22],
+        "overview": "Data splitting into training, validation, and test sets; avoiding overfitting.",
+        "summary": "Model evaluation involves training, validation, and testing, ensuring generalization and avoiding overfitting."
+      }
+    ],
+    "question_answer": {
+      "concept_questions": [
+        {
+          "question": "What is supervised learning?",
+          "answer": "Supervised learning is a machine learning paradigm where models are trained using labeled data to learn a function that maps inputs to outputs.",
+          "reference_slide": 5
+        },
+        {
+          "question": "How does Bayesian learning work?",
+          "answer": "Bayesian learning updates prior probabilities of hypotheses using observed data based on Bayes' theorem.",
+          "reference_slide": 6
+        }
+      ],
+      "multiple_choice_questions": [
+        {
+          "question": "What assumption does the Naïve Bayes classifier make?",
+          "options": [
+            "A) Features are dependent given the class",
+            "B) Features are independent given the class",
+            "C) The prior probabilities are equal for all classes",
+            "D) It does not use probability distributions"
+          ],
+          "correct_answer": "B) Features are independent given the class",
+          "reference_slide": 14
+        },
+        {
+          "question": "What is overfitting?",
+          "options": [
+            "A) When a model performs well on unseen data",
+            "B) When a model captures noise instead of the underlying pattern",
+            "C) When a model has too few parameters",
+            "D) When a model generalizes well to new data"
+          ],
+          "correct_answer": "B) When a model captures noise instead of the underlying pattern",
+          "reference_slide": 24
+        }
+      ]
+    }
+  }
+  

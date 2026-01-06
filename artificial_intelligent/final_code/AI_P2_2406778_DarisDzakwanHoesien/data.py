@@ -1,0 +1,75 @@
+from pathlib import Path
+import json
+
+def extract_content_from_ipynb(file_path: Path) -> str:
+    """
+    Extracts and concatenates the content of a Jupyter Notebook (.ipynb) file.
+    Both code cells and markdown cells are extracted, preserving the order.
+    Each cell is annotated with a header indicating its type.
+    """
+    try:
+        notebook = json.loads(file_path.read_text(encoding="utf-8"))
+        cells = notebook.get("cells", [])
+        content_lines = []
+        for idx, cell in enumerate(cells, start=1):
+            cell_type = cell.get("cell_type", "unknown")
+            if cell_type == "code":
+                content_lines.append(f"### Cell {idx}: Code")
+            elif cell_type == "markdown":
+                content_lines.append(f"### Cell {idx}: Markdown")
+            else:
+                content_lines.append(f"### Cell {idx}: {cell_type}")
+            source = "".join(cell.get("source", []))
+            content_lines.append(source)
+            content_lines.append("")  # blank line after each cell
+        return "\n".join(content_lines)
+    except Exception as e:
+        return f"# Error reading {file_path}: {e}"
+
+def export_code_and_directory_list(root_directory=".", base_code_file="code_part_", list_file="directories.txt", max_lines=5000):
+    """
+    Splits code output into multiple files, each with at most `max_lines` lines.
+    """
+    root = Path(root_directory)
+    files = list(root.rglob("*.py")) + list(root.rglob("*.ipynb"))
+    files.sort(key=lambda p: p.as_posix())
+
+    current_line_count = 0
+    part_index = 1
+    code_out = open(f"{base_code_file}{part_index}.txt", "w", encoding="utf-8")
+
+    with open(list_file, "w", encoding="utf-8") as list_out:
+        for file_path in files:
+            list_out.write(f"{file_path}\n")
+
+            header = f"# {file_path}"
+            if file_path.suffix == ".ipynb":
+                content = extract_content_from_ipynb(file_path)
+            else:
+                try:
+                    content = file_path.read_text(encoding="utf-8")
+                except Exception as e:
+                    content = f"# Error reading {file_path}: {e}"
+
+            full_block = f"{header}\n{content}\n\n"
+            lines_in_block = full_block.count("\n") + 1
+
+            # If the current file would exceed the max line limit, rotate to a new file
+            if current_line_count + lines_in_block > max_lines:
+                code_out.close()
+                part_index += 1
+                code_out = open(f"{base_code_file}{part_index}.txt", "w", encoding="utf-8")
+                current_line_count = 0
+
+            code_out.write(full_block)
+            current_line_count += lines_in_block
+
+    code_out.close()
+
+if __name__ == "__main__":
+    export_code_and_directory_list(
+        root_directory=".", 
+        base_code_file="code_part_",  # Will create files like code_part_1.txt, code_part_2.txt...
+        list_file="directories.txt",
+        max_lines=2000
+    )

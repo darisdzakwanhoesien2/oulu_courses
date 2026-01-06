@@ -1,0 +1,2 @@
+data.py
+oulu-sna-final-project-part-1.ipynb
