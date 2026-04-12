@@ -6,7 +6,6 @@ from utils.mvp_controller import MVPController
 from OpenGL.GL import shaders
 import random
 import time
-from pathlib import Path
 
 # Define a tetrahedron using triangles
 vertex_buffer_data = [
@@ -24,17 +23,10 @@ start_time = time.time()
 
 
 def read_file(file_path: str) -> str:
-    """Read a text file given a path and return it as a string.
-    Try: (1) relative to this script, (2) the provided path as-is.
-    """
-    base = Path(__file__).parent
-    candidate = base / file_path
-    if not candidate.exists():
-        candidate = Path(file_path)
-    if not candidate.exists():
-        raise FileNotFoundError(f"File not found: tried {base / file_path} and {file_path}")
-    # return full file contents as a string (suitable for shader compilation)
-    return candidate.read_text(encoding="utf-8")
+	"""Reads a text file given a path and returns it as a string."""
+	with open(file_path, mode="r") as f:
+		contents = f.readlines()
+	return contents
 
 
 class GLContext:

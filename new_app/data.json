@@ -1,0 +1,29 @@
+{
+  "presets": [
+    {
+      "label": "CG_assignment1 - main",
+      "left": "Computer_Graphics_2026/Assignment1/CG_assignment1.py",
+      "right": "Computer_Graphics_2026/Assignment1_DarisDzakwanHoesien_2406778/CG_assignment1.py"
+    },
+    {
+      "label": "glut_window - utils",
+      "left": "Computer_Graphics_2026/Assignment1/utils/glut_window.py",
+      "right": "Computer_Graphics_2026/Assignment1_DarisDzakwanHoesien_2406778/utils/glut_window.py"
+    },
+    {
+      "label": "mvp_controller - utils",
+      "left": "Computer_Graphics_2026/Assignment1/utils/mvp_controller.py",
+      "right": "Computer_Graphics_2026/Assignment1_DarisDzakwanHoesien_2406778/utils/mvp_controller.py"
+    },
+    {
+      "label": "fragment_shader - copy vs modified",
+      "left": "Computer_Graphics_2026/Assignment1_copy/shaders/fragment_shader.glsl",
+      "right": "Computer_Graphics_2026/Assignment1_DarisDzakwanHoesien_2406778/shaders/fragment_shader.glsl"
+    },
+    {
+      "label": "vertex_shader - copy vs modified",
+      "left": "Computer_Graphics_2026/Assignment1_copy/shaders/vertex_shader.glsl",
+      "right": "Computer_Graphics_2026/Assignment1_DarisDzakwanHoesien_2406778/shaders/vertex_shader.glsl"
+    }
+  ]
+}
