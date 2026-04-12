@@ -1,0 +1,25 @@
+{
+  "pages": [
+    {
+      "index": 0,
+      "markdown": "22.52\n\n16\n\n+\n\nInstagram\n\n#\n\n#\n\nthatcoolprofessor\n\nAllIMS, New Delhi, India\n\nFollow\n\n# EUROPE\n\n5/12\n\nProject Fit + Technical Depth\n\nCore philosophy: You are applying for a specific research project/job\n\nWhat they expect:\n\n- Strong technical alignment with the project\n- Clear demonstration of methods and skills\n- Less personal storytelling\n\nStructure:\n\n- Intro (position you're applying for)\n- Relevant research experience\n- Technical skills (methods, tools)\n- Why you fit THIS project\n- Closing\n\nTone:\n\nProfessional, concise, almost like a job application\n\nCritical:\n\nRead the PhD project description carefully\n\nMirror keywords (methods, techniques)\n\n@thatcoolprofessor\n\n847\n\n15\n\n22\n\n902\n\nthatcoolprofessor Follow\n\nUsing the SAM... more\n\n4 April - See translation\n\n#\n\n#\n\n#\n\n#\n\n#\n\n#",
+      "images": [],
+      "tables": [],
+      "hyperlinks": [],
+      "header": null,
+      "footer": null,
+      "dimensions": {
+        "dpi": 200,
+        "height": 2048,
+        "width": 945
+      },
+      "confidence_scores": null
+    }
+  ],
+  "model": "mistral-ocr-latest",
+  "document_annotation": null,
+  "usage_info": {
+    "pages_processed": 1,
+    "doc_size_bytes": 166283
+  }
+}

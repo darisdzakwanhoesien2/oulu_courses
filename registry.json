@@ -79,6 +79,175 @@
       "path": "Towards Data Mining 2025/Exercise 7 materials-20250925/script_NN_E7.R",
       "tags": ["neural networks", "PCA"],
       "description": "Neural network and PCA experiments."
-    }
+    },
+    {
+      "id": "machine_vision_course",
+      "title": "Machine Vision – Programming Assignments",
+      "course": "Machine Vision",
+      "type": "course",
+      "path": "machine_vision/Programming Assignment/",
+      "description": "Complete set of programming assignments for the Machine Vision course, covering imaging, color, segmentation, texture, recognition, motion, Hough transform, and triangulation.",
+      "children": [
+        "mv_a1_imaging",
+        "mv_a2_color",
+        "mv_a3_segmentation",
+        "mv_a4_texture",
+        "mv_a5_recognition",
+        "mv_a6_motion",
+        "mv_a7_hough",
+        "mv_a8_triangulation"
+      ]
+    },
+    {
+  "id": "mv_a1_imaging",
+  "title": "A1 – Imaging and Depth",
+  "course": "Machine Vision",
+  "type": "notebook",
+  "assignment": 1,
+  "topic": "Imaging",
+  "path": "machine_vision/Programming Assignment/A1-Imaging_Daris_2406778/MV_A1.ipynb",
+  "description": "Introduction to image formation and depth-related concepts using camera models.",
+  "learning_objectives": [
+    "Understand pinhole camera model",
+    "Relate depth to image geometry"
+  ],
+  "assets": [
+    "machine_vision/Programming Assignment/A1-Imaging_Daris_2406778/depth.png",
+    "machine_vision/Programming Assignment/A1-Imaging_Daris_2406778/fig1.jpg",
+    "machine_vision/Programming Assignment/A1-Imaging_Daris_2406778/image.jpg"
+  ]
+},
+{
+  "id": "mv_a2_color",
+  "title": "A2 – Color and White Balance",
+  "course": "Machine Vision",
+  "type": "notebook",
+  "assignment": 2,
+  "topic": "Color",
+  "path": "machine_vision/Programming Assignment/A2-Color_Daris_2406778/MV_A2.ipynb",
+  "description": "Color correction and white balance under varying illumination.",
+  "learning_objectives": [
+    "Understand RGB normalization",
+    "Apply white balance correction"
+  ],
+  "assets": [
+    "machine_vision/Programming Assignment/A2-Color_Daris_2406778/fig1.jpg",
+    "machine_vision/Programming Assignment/A2-Color_Daris_2406778/ideal_wb.jpg",
+    "machine_vision/Programming Assignment/A2-Color_Daris_2406778/incorrect_wb.jpg"
+  ]
+},
+{
+  "id": "mv_a3_segmentation",
+  "title": "A3 – Image Segmentation",
+  "course": "Machine Vision",
+  "type": "notebook",
+  "assignment": 3,
+  "topic": "Segmentation",
+  "path": "machine_vision/Programming Assignment/A3-Segmentation_Daris_2406778/MV_A3.ipynb",
+  "description": "Object segmentation using thresholding and morphological operations.",
+  "learning_objectives": [
+    "Binary segmentation",
+    "Morphological post-processing"
+  ],
+  "assets": [
+    "machine_vision/Programming Assignment/A3-Segmentation_Daris_2406778/fig1.jpg",
+    "machine_vision/Programming Assignment/A3-Segmentation_Daris_2406778/puzzle.jpg"
+  ]
+},
+{
+  "id": "mv_a4_texture",
+  "title": "A4 – Texture Analysis",
+  "course": "Machine Vision",
+  "type": "notebook",
+  "assignment": 4,
+  "topic": "Texture",
+  "path": "machine_vision/Programming Assignment/A4-Texture_Daris_2406778/MV_A4.ipynb",
+  "description": "Texture feature extraction using filtering and statistical descriptors.",
+  "learning_objectives": [
+    "Texture filtering",
+    "Feature extraction"
+  ]
+},
+{
+  "id": "mv_a5_recognition",
+  "title": "A5 – Object Recognition",
+  "course": "Machine Vision",
+  "type": "notebook",
+  "assignment": 5,
+  "topic": "Recognition",
+  "path": "machine_vision/Programming Assignment/A5-Recognition_Daris_2406778/MV_A5.ipynb",
+  "description": "Object classification using shape and color features with distance metrics.",
+  "learning_objectives": [
+    "Feature extraction",
+    "Nearest centroid and Mahalanobis distance"
+  ],
+  "assets": [
+    "machine_vision/Programming Assignment/A5-Recognition_Daris_2406778/class_data.npz"
+  ]
+},
+
+{
+  "id": "mv_a6_motion",
+  "title": "A6 – Motion Detection",
+  "course": "Machine Vision",
+  "type": "notebook",
+  "assignment": 6,
+  "topic": "Motion",
+  "path": "machine_vision/Programming Assignment/A6-Motion/MV_A6.ipynb",
+  "description": "Motion detection using temporal differencing and background subtraction.",
+  "learning_objectives": [
+    "Background modeling",
+    "Frame differencing"
+  ],
+  "assets": [
+    "machine_vision/Programming Assignment/A6-Motion/test.mp4"
+  ]
+},
+{
+  "id": "mv_a7_hough",
+  "title": "A7 – Hough Transform",
+  "course": "Machine Vision",
+  "type": "notebook",
+  "assignment": 7,
+  "topic": "Shape Detection",
+  "path": "machine_vision/Programming Assignment/A7-Hough/MV_A7.ipynb",
+  "description": "Circle detection using Hough transform in edge images.",
+  "learning_objectives": [
+    "Edge detection",
+    "Hough voting space"
+  ],
+  "assets": [
+    "machine_vision/Programming Assignment/A7-Hough/coins.jpg",
+    "machine_vision/Programming Assignment/A7-Hough/houge_picture.png"
+  ]
+},
+{
+  "id": "mv_a8_triangulation",
+  "title": "A8 – Stereo Triangulation",
+  "course": "Machine Vision",
+  "type": "notebook",
+  "assignment": 8,
+  "topic": "3D Vision",
+  "path": "machine_vision/Programming Assignment/A8-Triangulation/MV_A8.ipynb",
+  "description": "3D reconstruction using stereo camera triangulation.",
+  "learning_objectives": [
+    "Epipolar geometry",
+    "Triangulation"
+  ],
+  "assets": [
+    "machine_vision/Programming Assignment/A8-Triangulation/left.jpg",
+    "machine_vision/Programming Assignment/A8-Triangulation/right.jpg",
+    "machine_vision/Programming Assignment/A8-Triangulation/pts1.npy",
+    "machine_vision/Programming Assignment/A8-Triangulation/pts2.npy",
+    "machine_vision/Programming Assignment/A8-Triangulation/pts3D.npy"
+  ]
+}
+
+
+
+
+
+
+
   ]
 }

@@ -1,0 +1,24 @@
+{
+  "CG Programming Assignment 2.pdf": {
+    "status": "failed",
+    "error": "Signed URL failed: {\"detail\": \"No file matches the given query.\"}"
+  },
+  "WhatsApp Image 2026-04-11 at 22.52.45.jpeg": {
+    "status": "done",
+    "pages": 1,
+    "json_output": "/Users/darisdzakwanhoesien/Documents/project_documentation/codebase/education/oulu_courses/new_app/data/thesis_dataset/WhatsApp Image 2026-04-11 at 22_52_45_jpeg/ocr_result.json",
+    "time": "2026-04-12 09:56:31"
+  },
+  "WhatsApp Image 2026-04-11 at 22.53.00.jpeg": {
+    "status": "done",
+    "pages": 1,
+    "json_output": "/Users/darisdzakwanhoesien/Documents/project_documentation/codebase/education/oulu_courses/new_app/data/thesis_dataset/WhatsApp Image 2026-04-11 at 22_53_00_jpeg/ocr_result.json",
+    "time": "2026-04-12 09:56:34"
+  },
+  "CG_Programming_Assignment_2.pdf": {
+    "status": "done",
+    "pages": 6,
+    "json_output": "/Users/darisdzakwanhoesien/Documents/project_documentation/codebase/education/oulu_courses/new_app/data/thesis_dataset/CG_Programming_Assignment_2_pdf/ocr_result.json",
+    "time": "2026-04-12 09:57:41"
+  }
+}
