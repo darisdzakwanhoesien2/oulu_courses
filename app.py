@@ -44,7 +44,7 @@ if uploaded:
     elif module == "Texture (LBP)":
         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         lbp = lbp_texture(gray)
-        result = cv2.applyColorMap(lbp, cv2.COLORMAP_JET)
+        result = cv2.applyColorMap((lbp * 32).astype(np.uint8), cv2.COLORMAP_JET)
 
     elif module == "Hough Circles":
         result = detect_circles(img)
